@@ -906,11 +906,14 @@ void GT_ScoreEvent( Client @client, const String &score_event, const String &arg
 
     else if ( score_event == "dmg" )
     {
-        Entity @attacker = @client.getEnt();
+        Entity @attacker = null;
+        if (@client != null)
+            @attacker = @client.getEnt();
 
         if ( match.getState() == MATCH_STATE_PLAYTIME )
         {
-            powerUp[attacker.playerNum].dmg( @attacker, args );
+            if (@attacker != null)
+                powerUp[attacker.playerNum].dmg( @attacker, args );
 
             Entity @victim = @G_GetEntity( args.getToken( 0 ).toInt() );
 
@@ -940,7 +943,8 @@ void GT_ScoreEvent( Client @client, const String &score_event, const String &arg
 		{
 			GT_updateScore( client );
 
-            powerUp[client.playerNum].kill(client.getEnt(), args);
+			if (@attacker != null)
+                powerUp[client.playerNum].kill(attacker, args);
 		}
     }
     else if ( score_event == "award" )
