@@ -2,6 +2,18 @@
 String POWERUPS_VERSION = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "v1";
 String POWERUPS_AUTHOR = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "algolineu";
 
+bool POWERUPS_intArrayContains( array<int> ar, int compare )
+{
+    for (uint i = 0; i < ar.length(); i++)
+    {
+        if ( ar[i] == compare )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 int POWERUPS_randomInteger(int min, int max) { return min + rand() % (max - min + 1); }
 
 array<int> POWERUPS_teamAlivePlayerList(int teamNum)
@@ -122,7 +134,7 @@ enum PowerUpID {
     POWERUPID_PROJECTILESPEED,
     POWERUPID_FREEZE_ENEMIES,
     POWERUPID_AIMBOT,
-    // POWERUPID_WALLHACK,
+    POWERUPID_WALLHACK,
     POWERUPID_CLONE,
     POWERUPID_TELEPORTER,
 
@@ -150,7 +162,7 @@ cPowerUp POWERUPS_getPowerUpByID(uint id)
         case POWERUPID_PROJECTILESPEED:  return cPowerUpProjectileSpeed();
         case POWERUPID_FREEZE_ENEMIES:   return cPowerUpFreezeEnemies();
         case POWERUPID_AIMBOT:           return cPowerUpAimbot();
-        // case POWERUPID_WALLHACK:         return cPowerUpWallhack();
+        case POWERUPID_WALLHACK:         return cPowerUpWallhack();
         case POWERUPID_CLONE:            return cPowerUpClone();
         case POWERUPID_TELEPORTER:       return cPowerUpTeleporter();
 
@@ -268,6 +280,8 @@ const uint POWERUP_JETPACK_PMFEATS_NEGATE = (PMFEAT_CROUCH | PMFEAT_JUMP | PMFEA
 const uint POWERUP_FROZEN_PMFEATS_NEGATE = (PMFEAT_CROUCH | PMFEAT_JUMP | PMFEAT_DASH | PMFEAT_WALLJUMP);
 
 const uint POWERUP_AIMBOT_PMFEATS_NEGATE = (PMFEAT_DASH | PMFEAT_WALLJUMP);
+
+int[] POWERUPS_nextRoundID(maxClients);
 
 array<cPowerUp @> powerUp(maxClients);
 
@@ -514,8 +528,7 @@ class cPowerUpSwap : cPowerUp {
 
     void classAction(Entity @ent) override
     {
-        if (ent.health <= 0)
-            return;
+
         if (!checkCooldown(@ent))
             return;
 
@@ -1722,8 +1735,8 @@ class cPowerUpLaunch : cPowerUp {
         };
     }
 
-    // scrapped because cant SVF_OWNERANDCHASERS, because ent.frame and ent.ownerNum are the same for whatever reason ???
-    /*
+    // cant SVF_OWNERANDCHASERS, because ent.frame and ent.ownerNum are the same for whatever reason ???
+    // Recommend to not add this to chooseablePowerupList
     class cPowerUpWallhack : cPowerUp {
         cPowerUpWallhack() {
             super(
@@ -1736,10 +1749,10 @@ class cPowerUpLaunch : cPowerUp {
 
                 0.0f, 0.0f,
 
-                "Wallhack",
-                S_COLOR_YELLOW,
-                "You can see enemies through walls.",
-                "You can see enemies through walls",
+                "Team Wallhack",
+                S_COLOR_BLUE,
+                "Your team can see enemies through walls.",
+                "Your team can see enemies through walls",
                 ""
             );
         }
@@ -1764,12 +1777,12 @@ class cPowerUpLaunch : cPowerUp {
 
                 @broadcasterEnt = @G_SpawnEntity( "capture_indicator_sprite" );
                 @broadcasterEnt.owner = @ent;
-                broadcasterEnt.ownerNum = ent.entNum;
-                // broadcasterEnt.frame = 64;
+                // broadcasterEnt.ownerNum = ent.entNum;
+                broadcasterEnt.frame = 64;
                 broadcasterEnt.type = ET_RADAR;
                 broadcasterEnt.solid = SOLID_NOT;
                 broadcasterEnt.modelindex = G_ImageIndex( "gfx/indicators/radar" );
-                broadcasterEnt.svflags = ( SVF_BROADCAST | SVF_ONLYOWNER );
+                broadcasterEnt.svflags = ( SVF_BROADCAST | SVF_ONLYTEAM );
                 broadcasterEnt.team = ent.team;
 
                 broadcasterEntNum[i] = broadcasterEnt.entNum;
@@ -1815,7 +1828,6 @@ class cPowerUpLaunch : cPowerUp {
 
         };
     }
-    */
 
 
 class cPowerUpClone : cPowerUp {
@@ -1859,8 +1871,6 @@ class cPowerUpClone : cPowerUp {
 
     void classAction(Entity @ent) override
     {
-        if (ent.health <= 0)
-            return;
         if (!checkCooldown(@ent))
             return;
 
@@ -1912,6 +1922,7 @@ class cPowerUpClone : cPowerUp {
         clone.timeStamp = levelTime;
 
         @clone.think = POWERUPS_clone_think;
+        @clone.pain = POWERUPS_clone_pain;
         @clone.die = POWERUPS_clone_die;
         clone.nextThink = levelTime;
 
@@ -1943,8 +1954,10 @@ void POWERUPS_clone_think(Entity @ent) {
         ent.freeEntity();
       }
 }
-
 void POWERUPS_clone_die(Entity @ent, Entity @inflicter, Entity @attacker) {
+    ent.freeEntity();
+};
+void POWERUPS_clone_pain(Entity @ent, Entity @other, float kick, float damage) {
     ent.freeEntity();
 };
 
@@ -2000,10 +2013,8 @@ class cPowerUpTeleporter : cPowerUp {
     void classAction(Entity @ent) override
     {
 
-        if (ent.health <= 0)
-        return;
         if (!checkCooldown(@ent))
-        return;
+            return;
 
         if (@teleporter != null && @teleporter.owner == @ent ) {
             ent.teleportEffect( true );
@@ -2161,11 +2172,20 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
         GENERIC_SetQuickMenu(@ent.client, "\"" + infotext + "\" \"" + command + "\"");
     };
 
+    String POWERUPS_getPowerupNameByID( uint id )
+    {
+        cPowerUp @pwr = @POWERUPS_getPowerUpByID( id );
+
+        if (pwr.powerupID == POWERUPID_NONE)
+            return S_COLOR_WHITE + "None";
+
+        return pwr.color + pwr.name;
+    }
+
     String POWERUPS_getRandomPowerupName()
     {
         uint id = chooseablePowerupList[POWERUPS_randomInteger(0, chooseablePowerupList.length() - 1)];
-        cPowerUp @pwr = @POWERUPS_getPowerUpByID(id);
-        return pwr.color + pwr.name;
+        return POWERUPS_getPowerupNameByID( id );
     }
 
     void POWERUPS_applyRandomPowerup(Entity @ent)
@@ -2194,6 +2214,9 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
 
     void POWERUPS_initialise()
     {
+
+        POWERUPS_Command_Register();
+
         G_ConfigString(CS_HELPMESSAGES + POWERUP_HELPMESSAGE_CLASSACTION,
         "Use with " + POWERUPS_helpmsg_bind("{Bclassaction1}") + " or open the quickmenu by holding " + POWERUPS_helpmsg_bind("{B+quickmenu}") + " and press " + POWERUPS_helpmsg_bind("1") + " to use."
         );
@@ -2205,7 +2228,7 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
         "Select someone to target by attacking them. Hold " + POWERUPS_helpmsg_bind("{B+special}") + " to look at your target."
         );
 
-        if ( chooseablePowerupList.empty() )                // was not already created by the gametype ascript
+        if ( chooseablePowerupList.empty() )                // was not already created by the gametype script
             if ( !gametype.isInstagib )
                 chooseablePowerupList = {
                     POWERUPID_SWAP,
@@ -2248,15 +2271,20 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
     {
 
         for (int i = 0; i < maxClients; i++) {
-            Entity @ent = @G_GetClient(i).getEnt();
+            Client @client = @G_GetClient(i);
+            Entity @ent = @client.getEnt();
+
+            if (client.state() < CS_SPAWNED) {
+                POWERUPS_nextRoundID[client.playerNum] = 0;
+            }
 
             if (match.getState() >= MATCH_STATE_POSTMATCH || match.getState() < MATCH_STATE_PLAYTIME) {
                 // powerup cooldown
-                ent.client.setHUDStat(STAT_PROGRESS_SELF, 0);
+                client.setHUDStat(STAT_PROGRESS_SELF, 0);
                 // powerup message
-                ent.client.setHUDStat(STAT_MESSAGE_SELF, 0);
+                client.setHUDStat(STAT_MESSAGE_SELF, 0);
 
-                // ent.client.setHUDStat(STAT_IMAGE_SELF, 0);
+                // client.setHUDStat(STAT_IMAGE_SELF, 0);
 
             } else {
                 cPowerUp @pwr = @powerUp[ent.playerNum];
@@ -2267,13 +2295,13 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
                 }
 
                 if (ent.isGhosting()) {
-                    if (!ent.client.chaseActive) {
+                    if (!client.chaseActive) {
                         // powerup cooldown
-                        ent.client.setHUDStat(STAT_PROGRESS_SELF, 0);
+                        client.setHUDStat(STAT_PROGRESS_SELF, 0);
                         // powerup message
-                        ent.client.setHUDStat(STAT_MESSAGE_SELF, 0);
+                        client.setHUDStat(STAT_MESSAGE_SELF, 0);
 
-                        // ent.client.setHUDStat(STAT_IMAGE_SELF, 0 );
+                        // client.setHUDStat(STAT_IMAGE_SELF, 0 );
                     }
 
                     if (pwr.powerupID != POWERUPID_NONE)
@@ -2283,7 +2311,7 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
 
                 pwr.think(ent);
 
-                ent.client.setHUDStat(STAT_PROGRESS_SELF, rint(pwr.getStatFloat() * 100.0f));
+                client.setHUDStat(STAT_PROGRESS_SELF, rint(pwr.getStatFloat() * 100.0f));
             }
         }
     };

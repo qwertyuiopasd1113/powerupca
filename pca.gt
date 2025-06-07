@@ -7,6 +7,7 @@ generic/matchstates.as;
 generic/bots.as;
 generic/awards.as;
 
+powerupca/commands.as;
 powerupca/ca.as;
 powerupca/powerups.as;
 

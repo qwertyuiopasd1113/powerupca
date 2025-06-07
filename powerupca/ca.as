@@ -255,6 +255,16 @@ class cCARound
             G_CenterPrintMsg( null, 'Fight!');
 
             //String powerupString = "";
+
+            for ( int i = 0; i < maxClients; i++ ) {
+
+                Entity @ent = @G_GetClient(i).getEnt();
+
+                if ( ent.isGhosting() ) {
+                    POWERUPS_nextRoundID[ent.playerNum] = 0;
+                }
+
+            }
             for ( int i = TEAM_PLAYERS; i < GS_MAX_TEAMS; i++ )
             {
                 Team @team = @G_GetTeam( i );
@@ -263,7 +273,12 @@ class cCARound
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
-                    POWERUPS_applyRandomPowerup( @ent );
+                    if ( POWERUPS_nextRoundID[ent.playerNum] != 0 ) {
+                        POWERUPS_applyPowerupByID( @ent, POWERUPS_nextRoundID[ent.playerNum] );
+                        POWERUPS_nextRoundID[ent.playerNum] = 0;
+                    }
+                    else
+                        POWERUPS_applyRandomPowerup( @ent );
 
                     //cPowerUp @pwr = @powerUp[ent.playerNum];
                     //powerupString += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.statMessage() + " \n ");
@@ -728,7 +743,10 @@ void CA_SetUpCountdown()
 
 bool GT_Command( Client @client, const String &cmdString, const String &argsString, int argc )
 {
-    if ( cmdString == "gametype" )
+    bool powerupCommand = POWERUPS_Command( @client, cmdString, argsString, argc );
+    if (powerupCommand)
+        return true;
+    else if ( cmdString == "gametype" )
     {
         String response = "";
         Cvar fs_game( "fs_game", "", 0 );
@@ -744,15 +762,6 @@ bool GT_Command( Client @client, const String &cmdString, const String &argsStri
 
         G_PrintMsg( client.getEnt(), response );
         return true;
-    }
-    else if ( cmdString == "classaction1" )
-    {
-        cPowerUp @pwr = @powerUp[client.playerNum];
-        if (@pwr == null)
-            return false;
-        pwr.classAction(client.getEnt());
-        return true;
-
     }
     else if ( cmdString == "cvarinfo" )
     {
@@ -1249,8 +1258,6 @@ void GT_InitGametype()
 
     // add commands
     G_RegisterCommand( "gametype" );
-
-    G_RegisterCommand( "classaction1" );
 
     POWERUPS_initialise();
 
