@@ -174,33 +174,79 @@ array<int> chooseablePowerupList;
 
 
 // TODO: Projectiles have different amounts of knockback - Scales with dmg
-int POWERUPS_kb_amount_weapon(int weap)
+int POWERUPS_kb_amount_weapon(int weap, float damage)
 {
     const int KB_GB = 50;
+
+    const int KB_GB_SPLASH_MAX = 90;
+    const int KB_GB_SPLASH_MIN = 10;
+    const float DMG_GB_SPLASH_MIN = 8.0f;
+    const float DMG_GB_SPLASH_MAX = 35.0f;
+
     const int KB_MG = 10;
+
     const int KB_RG = 7;
+
     const int KB_GL = 100;
+    const int KB_GL_SPLASH_MIN = 35;
+    const float DMG_GL_MIN = 15.0f;
+    const float DMG_GL_MAX = 80.0f;
+
     const int KB_RL = 100;
+    const int KB_RL_SPLASH_MIN = 35;
+    const float DMG_RL_MIN = 15.0f;
+    const float DMG_RL_MAX = 80.0f;
+
     const int KB_PG = 20;
+    const int KB_PG_SPLASH_MIN = 1;
+    const float DMG_PG_MIN = 5.0f;
+    const float DMG_PG_MAX = 15.0f;
+
     const int KB_LG = 14;
+
     const int KB_EB = 80;
 
+    bool isSplash = POWERUPS_isSplashDamage( weap, damage );
+
     switch (weap) {
+
     case WEAP_GUNBLADE:
-        return KB_GB;
-    case 2:
+        if (isSplash) {
+            float t = float(damage - DMG_GB_SPLASH_MIN) / float(DMG_GB_SPLASH_MAX - DMG_GB_SPLASH_MIN);
+            return rint( KB_GB_SPLASH_MIN + t * float(KB_GB_SPLASH_MAX - KB_GB_SPLASH_MIN) );
+        }
+        else
+            return KB_GB;
+    case WEAP_MACHINEGUN:
         return KB_MG;
-    case 3:
+    case WEAP_RIOTGUN:
         return KB_RG;
-    case 4:
-        return KB_GL;
-    case 5:
-        return KB_RL;
-    case 6:
-        return KB_PG;
-    case 7:
+
+    case WEAP_GRENADELAUNCHER:
+        if (isSplash) {
+            float t = float(damage - DMG_GL_MIN) / float(DMG_GL_MAX - DMG_GL_MIN);
+            return rint( KB_GL_SPLASH_MIN + t * float(KB_GL - KB_GL_SPLASH_MIN) );
+        }
+        else
+            return KB_GL;
+    case WEAP_ROCKETLAUNCHER:
+        if (isSplash) {
+            float t = float(damage - DMG_RL_MIN) / float(DMG_RL_MAX - DMG_RL_MIN);
+            return rint( KB_RL_SPLASH_MIN + t * float(KB_RL - KB_RL_SPLASH_MIN) );
+        }
+        else
+            return KB_RL;
+    case WEAP_PLASMAGUN:
+        if (isSplash) {
+            float t = float(damage - DMG_PG_MIN) / float(DMG_PG_MAX - DMG_PG_MIN);
+            return rint( KB_PG_SPLASH_MIN + t * float(KB_PG - KB_PG_SPLASH_MIN) );
+        }
+        else
+            return KB_PG;
+
+    case WEAP_LASERGUN:
         return KB_LG;
-    case 8:
+    case WEAP_ELECTROBOLT:
         return KB_EB;
 
     default:
@@ -814,7 +860,7 @@ class cPowerUpJetpack : cPowerUp {
     {
         super(
             POWERUPID_JETPACK,
-            0,                                              // TODO: NO IMAGE
+            0,
 
             { 1.0f },
             { 2.0f },
@@ -1009,7 +1055,7 @@ class cPowerUpExtraKnockback : cPowerUp {
             return;
         if (damage > victim.health + victim.client.armor)
             return;
-        if (POWERUPS_kb_amount_weapon(ent.weapon) == 0)
+        if (POWERUPS_kb_amount_weapon(ent.weapon, damage) == 0)
             return;
         Vec3 dir;
 
@@ -1020,8 +1066,8 @@ class cPowerUpExtraKnockback : cPowerUp {
 
         VictimOrigin.z += 0.25;
         victim.origin = VictimOrigin;
-        //TODO: SCALE WITH DAMAGE FOR SPLASH
-        victim.sustainDamage(@ent, @ent, dir, 0, POWERUPS_kb_amount_weapon(ent.weapon) * (this.rands[0] - 1.0f), 0, MOD_BARREL);
+
+        victim.sustainDamage(@ent, @ent, dir, 0, POWERUPS_kb_amount_weapon(ent.weapon, damage) * (this.rands[0] - 1.0f), 0, MOD_BARREL);
     }
 
     // void think(Entity @ent) override {
@@ -1406,7 +1452,7 @@ class cPowerUpLaunch : cPowerUp {
                 return;
             if (damage > victim.health + victim.client.armor)
                 return;
-            if (POWERUPS_kb_amount_weapon(ent.weapon) == 0)
+            if (POWERUPS_kb_amount_weapon(ent.weapon, damage) == 0)
                 return;
 
             Vec3 dir;
@@ -1419,8 +1465,7 @@ class cPowerUpLaunch : cPowerUp {
             VictimOrigin.z += 0.25;
             victim.origin = VictimOrigin;
 
-            //TODO: SCALE WITH DAMAGE FOR SPLASH
-            victim.sustainDamage(@ent, @ent, dir, 0, POWERUPS_kb_amount_weapon(ent.weapon) * (this.rands[0] + 1.0f), 0, MOD_BARREL);
+            victim.sustainDamage(@ent, @ent, dir, 0, POWERUPS_kb_amount_weapon(ent.weapon, damage) * this.rands[0], 0, MOD_BARREL);
         }
     };
 
@@ -1518,7 +1563,7 @@ class cPowerUpLaunch : cPowerUp {
         {
             super(
                 POWERUPID_FREEZE_ENEMIES,
-                0,                                          // TODO: NO IMAGE
+                0,
 
                 { 0.2f },
                 { 0.5f },
@@ -1835,7 +1880,7 @@ class cPowerUpClone : cPowerUp {
     {
         super(
             POWERUPID_CLONE,
-            0,                                              // TODO: NO IMAGE
+            0,
 
             { 0.0f },
             { 0.0f },
@@ -1966,7 +2011,7 @@ class cPowerUpTeleporter : cPowerUp {
     {
         super(
             POWERUPID_TELEPORTER,
-            0,                                              // TODO: NO IMAGE
+            0,
 
             { 0.0f },
             { 0.0f },
