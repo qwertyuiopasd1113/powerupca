@@ -1,5 +1,5 @@
 // METADATA
-String POWERUPS_VERSION = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "v1";
+String POWERUPS_VERSION = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "v1.1";
 String POWERUPS_AUTHOR = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "algolineu";
 
 bool POWERUPS_intArrayContains( array<int> ar, int compare )
@@ -35,7 +35,6 @@ int POWERUPS_randomPlayerNumTeam(int teamNum)
 };
 
 bool POWERUPS_isOnGround(Entity @ent) {
-
     Trace trace;
     Vec3 start = ent.origin;
     Vec3 end = start;
@@ -43,21 +42,24 @@ bool POWERUPS_isOnGround(Entity @ent) {
     Vec3 mins, maxs;
     ent.getSize(mins, maxs);
 
-    end.z -= 1;
-    trace.doTrace( start, mins, maxs, end, ent.entNum, MASK_SOLID );
+    end.z -= 2.0f;
 
-    if ( trace.startSolid )
-    {
+    bool hit = trace.doTrace(start, mins, maxs, end, ent.entNum, MASK_SOLID);
+
+    if (trace.startSolid) {
         return false;
     }
 
-    if ( trace.planeNormal.z < 0.1f )
-    {
+    if (!hit) {
+        return false;
+    }
+
+    if (trace.planeNormal.z < 0.7f) {
         return false;
     }
 
     return true;
-};
+}
 
 void POWERUPS_dealDamageWithArmor(Entity @ent, float damage) {
     float armorAbsorb = damage * (2.0f / 3.0f);
@@ -2186,8 +2188,12 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
     teleporter.freeEntity();
 };
 
+    // utils
+
     void POWERUPS_clearPowerupState(Entity @ent)
     {
+        if (ent.classname == "clone")
+            return;
         cPowerUp @pwr = @powerUp[ent.playerNum];
         pwr.clearPowerup(@ent);
 
@@ -2211,7 +2217,6 @@ void POWERUPS_teleporter_die(Entity @ent, Entity @inflicter, Entity @attacker) {
         ent.maxHealth = 100;
     };
 
-    // utils
     void POWERUPS_setUpClassaction(Entity @ent, String infotext, String command = "classaction1")
     {
         GENERIC_SetQuickMenu(@ent.client, "\"" + infotext + "\" \"" + command + "\"");

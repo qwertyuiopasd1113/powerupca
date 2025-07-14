@@ -926,7 +926,7 @@ void GT_ScoreEvent( Client @client, const String &score_event, const String &arg
 
             Entity @victim = @G_GetEntity( args.getToken( 0 ).toInt() );
 
-            if ( @victim.client != null )
+            if ( @victim.client != null && victim.classname != "clone" )
                 powerUp[victim.playerNum].tookdmg( @victim, args );
 
 
