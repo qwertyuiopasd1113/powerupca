@@ -24,6 +24,8 @@ Cvar g_ca_timelimit1v1( "g_ca_timelimit1v1", "60", 0 );
 Cvar g_noclass_inventory( "g_noclass_inventory", "gb mg rg gl rl pg lg eb cells shells grens rockets plasma lasers bullets", 0 );
 Cvar g_class_strong_ammo( "g_class_strong_ammo", "1 75 20 20 40 125 180 15", 0 ); // GB MG RG GL RL PG LG EB
 
+Cvar g_powerupca_autocomm( "g_powerupca_autocomm", "0", 0 );
+
 const int CA_ROUNDSTATE_NONE = 0;
 const int CA_ROUNDSTATE_PREROUND = 1;
 const int CA_ROUNDSTATE_ROUND = 2;
@@ -254,7 +256,6 @@ class cCARound
             G_AnnouncerSound( null, soundIndex, GS_MAX_TEAMS, false, null );
             G_CenterPrintMsg( null, 'Fight!');
 
-            //String powerupString = "";
 
             for ( int i = 0; i < maxClients; i++ ) {
 
@@ -270,6 +271,8 @@ class cCARound
                 Team @team = @G_GetTeam( i );
 
                 // give all players their powerup
+
+                String powerupString = S_COLOR_GREEN + "Your team's powerups:" + S_COLOR_WHITE + "\n";
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
@@ -280,11 +283,15 @@ class cCARound
                     else
                         POWERUPS_applyRandomPowerup( @ent );
 
-                    //cPowerUp @pwr = @powerUp[ent.playerNum];
-                    //powerupString += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.statMessage() + " \n ");
+                    cPowerUp @pwr = @powerUp[ent.playerNum];
+                    powerupString += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.color + pwr.name + S_COLOR_WHITE + " \n");
+                }
+                for ( int j = 0; @team.ent( j ) != null; j++ )
+                {
+                    Entity @ent = @team.ent( j );
+                    G_PrintMsg(ent, powerupString);
                 }
             }
-            //G_Print(powerupString);
 
         }
         break;
@@ -576,8 +583,10 @@ class cCARound
 			else
 			{
 				// report remaining health/armor of the killer
-				G_PrintMsg( target, "You were fragged by " + attacker.client.name + " (health: " + rint( attacker.health ) + ", armor: " + rint( attacker.client.armor ) + ( attackerPwr.name.empty() ? "" : ", power: " + attackerPwr.statMessage() ) + ")\n" );
+				G_PrintMsg( target, "You were fragged by " + attacker.client.name + " (health: " + rint( attacker.health ) + ", armor: " + rint( attacker.client.armor ) + ( attackerPwr.name.empty() ? "" : ", power: " + attackerPwr.color + attackerPwr.name ) + S_COLOR_WHITE + ")\n" );
 			}
+
+            POWERUPS_autoteamCommunicate_Kill( @target, @attacker );
 
             // if the attacker is the only remaining player on the team,
             // report number or remaining enemies
@@ -769,6 +778,57 @@ bool GT_Command( Client @client, const String &cmdString, const String &argsStri
         return true;
     }
 
+    else if ( cmdString == "callvotevalidate" )
+    {
+        String votename = argsString.getToken( 0 );
+
+        if ( votename == "autocomm" )
+        {
+            String voteArg = argsString.getToken( 1 );
+            if ( voteArg.len() < 1 )
+            {
+                client.printMessage( "Callvote " + votename + " requires at least one argument\n" );
+                return false;
+            }
+
+            int value = voteArg.toInt();
+            if ( voteArg != "0" && voteArg != "1" )
+            {
+                client.printMessage( "Callvote " + votename + " expects a 1 or a 0 as argument\n" );
+                return false;
+            }
+
+            if ( voteArg == "0" && !g_powerupca_autocomm.boolean )
+            {
+                client.printMessage( "Automatic communication is already off\n" );
+                return false;
+            }
+
+            if ( voteArg == "1" && g_powerupca_autocomm.boolean )
+            {
+                client.printMessage( "Automatic communication is already on\n" );
+                return false;
+            }
+
+            return true;
+        }
+
+        client.printMessage( "Unknown callvote " + votename + "\n" );
+        return false;
+    }
+    else if ( cmdString == "callvotepassed" )
+    {
+        String votename = argsString.getToken( 0 );
+
+        if ( votename == "autocomm" )
+        {
+            if ( argsString.getToken( 1 ).toInt() > 0 )
+                g_powerupca_autocomm.set( 1 );
+            else
+                g_powerupca_autocomm.set( 0 );
+        }
+        return true;
+    }
     return false;
 }
 
@@ -820,6 +880,16 @@ bool GT_UpdateBotStatus( Entity @ent )
         if ( @goal.client != null )
         {
             bot.setGoalWeight( i, GENERIC_PlayerWeight( ent, goal ) * 2.5 * offensiveStatus );
+            continue;
+        }
+
+        if ( goal.classname == "clone")
+        {
+            int weight = 0;
+            //if clone is teammate or not showing yet
+            if (goal.team != ent.team || goal.takeDamage != DAMAGE_NO )
+                weight = 999999;
+            bot.setGoalWeight( i, weight );
             continue;
         }
 
@@ -953,7 +1023,8 @@ void GT_ScoreEvent( Client @client, const String &score_event, const String &arg
 			GT_updateScore( client );
 
 			if (@attacker != null)
-                powerUp[client.playerNum].kill(attacker, args);
+                powerUp[client.playerNum].kill(@attacker, args);
+
 		}
     }
     else if ( score_event == "award" )
@@ -1258,6 +1329,8 @@ void GT_InitGametype()
 
     // add commands
     G_RegisterCommand( "gametype" );
+
+    G_RegisterCallvote( "autocomm", "<1 or 0>", "bool", "Teammates automatically communicate info when killed" );
 
     POWERUPS_initialise();
 

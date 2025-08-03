@@ -40,7 +40,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
     Entity @ent = @client.getEnt();
 
 
-    String BadUsageMsg = "Usage: setPowerup <player> <powerup id>\n";
+    String BadUsageMsg = "Usage: op_setPowerup <player> <powerup id>\n";
     BadUsageMsg += "Powerup IDs: ( ! = not in regular gameplay )\n";
     {
         uint digitsMax = String( maxPowerupID - 1 ).length();
@@ -91,7 +91,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
         return;
       }
 
-    if ( powerupID >= maxPowerupID || powerupID <= 0 ) {
+    if ( powerupID >= maxPowerupID || powerupID < 0 ) {
         G_PrintMsg(ent, BadUsageMsg);
         G_PrintMsg(ent, powerupID + " is not a valid powerup ID\n");
         return;
