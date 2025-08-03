@@ -2689,7 +2689,8 @@ void POWERUPS_initialise()
                 POWERUPID_AIMBOT,
                 POWERUPID_CLONE,
                 POWERUPID_TELEPORTER,
-                POWERUPID_SELFKB
+                POWERUPID_SELFKB,
+                POWERUPID_GRAPPLE
             };
         else
             chooseablePowerupList = {
