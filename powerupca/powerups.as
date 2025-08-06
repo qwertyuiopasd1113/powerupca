@@ -1,6 +1,5 @@
 // METADATA
-String POWERUPS_VERSION = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "v1.2";
-String POWERUPS_AUTHOR = S_COLOR_MAGENTA + "Powerups: " + S_COLOR_WHITE + "algolineu";
+String POWERUPS_VERSION = "1.3";
 
 
 // TODO
@@ -154,6 +153,8 @@ enum PowerUpID {
     POWERUPID_TELEPORTER,
     POWERUPID_SELFKB,
     POWERUPID_GRAPPLE,
+    POWERUPID_MULTIJUMP,
+    POWERUPID_HOMINGPROJS,
 
     maxPowerupID
 }
@@ -185,6 +186,8 @@ cPowerUp POWERUPS_getPowerUpByID(uint id)
         case POWERUPID_TELEPORTER:       return cPowerUpTeleporter();
         case POWERUPID_SELFKB:           return cPowerUpSelfKnockback();
         case POWERUPID_GRAPPLE:          return cPowerUpGrapple();
+        case POWERUPID_MULTIJUMP:        return cPowerUpMultiJump();
+        case POWERUPID_HOMINGPROJS:      return cPowerUpHomingProjectiles();
 
         default:                         return cPowerUpNone();
       }
@@ -297,10 +300,14 @@ bool POWERUPS_isSplashDamage(int weap, float damage)
         default: return false;
     }
 }
+bool POWERUPS_isKeyPressed(uint keyPresses, uint key)
+{
+    return (int(keyPresses) & (1 << key) == (1 << key));
+};
 
 bool POWERUPS_isKeyPressed(Client @client, uint key)
 {
-    return (int(client.pressedKeys) & (1 << key) == (1 << key));
+    return POWERUPS_isKeyPressed(client.pressedKeys, key);
 };
 
 String POWERUPS_formatStringWithFloat(String desc, array<float> ar, array<uint> numTypes)
@@ -1052,6 +1059,8 @@ class cPowerUpJetpack : cPowerUp {
         if (this.fuel < this.fuelMax / 10 && !lowOnFuel) {
             this.lowOnFuel = true;
             G_CenterPrintMsg(ent, S_COLOR_RED + "You are low on fuel!");
+            int soundindex = G_SoundIndex("sounds/ctftactics/turret_pain01");
+            G_LocalSound( ent.client, CHAN_AUTO, soundindex );
         }
 
         if (this.fuel > this.fuelMax / 10 && lowOnFuel)
@@ -1163,17 +1172,17 @@ class cPowerUpLaunch : cPowerUp {
             POWERUPID_LAUNCH,
             G_ImageIndex("gfx/bomb/carriericon"),
 
-            { 1.25f, 50.0f  },
-            { 2.25f, 100.0f },
+            { 1.25f, 80.0f  },
+            { 2.25f, 150.0f },
             { POWERUP_NUMBERTYPE_NUMBER, POWERUP_NUMBERTYPE_INTEGER },
 
-            10.0f, 0.0f,
+            5.0f, 0.0f,
 
             "Boom!",
             S_COLOR_ORANGE,
             "You make a powerful explosion with medium range and deal damage to people in close proximity to you.",
             "You make a powerful explosion and deal damage to people in close proximity to you",
-            " - Power: %s Damage: %s",
+            " - Knockback: %sx Damage: %s",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
     }
@@ -1199,8 +1208,8 @@ class cPowerUpLaunch : cPowerUp {
                 POWERUPID_INVISIBILITY,
                 G_ImageIndex("gfx/misc/playerspawn"),
 
-                { 0.2f },
-                { 1.2f },
+                { 0.5f },
+                { 1.0f },
                 { POWERUP_NUMBERTYPE_NUMBER },
                 0.0f, 0.0f,
 
@@ -1208,7 +1217,7 @@ class cPowerUpLaunch : cPowerUp {
                 S_COLOR_WHITE,
                 "You are invisibile while you aren't shooting or in air. You will be visible for %s seconds after you stop shooting or touch the ground, and double that if you are hit.",
                 "You are invisibile while you aren't shooting or in air, or being attacked.",
-                ""
+                " - %s seconds"
             );
         }
 
@@ -1239,7 +1248,8 @@ class cPowerUpLaunch : cPowerUp {
                 this.ability = false;
                 ent.effects &= ~EF_RACEGHOST;
                 ent.svflags &= ~SVF_ONLYTEAM;
-                this.abilityTimeEnd = levelTime + this.abilityLength;
+                if (this.abilityTimeEnd < levelTime + this.abilityLength)
+                    this.abilityTimeEnd = levelTime + this.abilityLength;
 
             } else if (this.abilityTimeEnd < levelTime) {
                 // is invisible
@@ -1247,7 +1257,7 @@ class cPowerUpLaunch : cPowerUp {
                 ent.effects |= EF_RACEGHOST;
                 ent.svflags |= SVF_ONLYTEAM;
             }
-
+/*
             if (maxClients < 120) {
                 String HiddenString = (S_COLOR_CYAN + "Hidden");
                 String VisibleString = (S_COLOR_RED + "Visible");
@@ -1259,6 +1269,20 @@ class cPowerUpLaunch : cPowerUp {
                 String msg = this.statMessage() + " - " + (this.ability ? HiddenString : VisibleString);
                 G_ConfigString(CS_GENERAL + 2 + ent.playerNum, msg);
             }
+*/
+        }
+
+        float getStatFloat() override
+        {
+            if (!this.ability)
+            {
+                float abilityBar = ((float(this.abilityTimeEnd) - float(levelTime)) / 1000) / this.rands[0];
+                return -abilityBar;
+            }
+            else
+            {
+                return 0.0f;
+            }
         }
 
 
@@ -1267,7 +1291,7 @@ class cPowerUpLaunch : cPowerUp {
             this.ability = false;
             ent.effects &= ~EF_SHELL;
             ent.svflags &= ~SVF_ONLYTEAM;
-            this.abilityTimeEnd = levelTime + (this.abilityLength);
+            this.abilityTimeEnd = levelTime + (this.abilityLength) * 2;
         };
 
         void dmg(Entity @ent, const String& in args = "") override
@@ -1478,7 +1502,7 @@ class cPowerUpLaunch : cPowerUp {
                 G_ImageIndex("gfx/hud/icons/vsay/needdefense"),
 
                 { 1.0f },
-                { 2.0f },
+                { 1.75f },
                 { POWERUP_NUMBERTYPE_MULTIPLIER },
 
                 0.0f, 0.0f,
@@ -1511,7 +1535,7 @@ class cPowerUpLaunch : cPowerUp {
             dir = ent.origin - victim.origin;
             dir.normalize();
 
-            VictimOrigin.z += 0.25;
+            VictimOrigin.z += 0.25;                         // you can get stuck to the ground
             victim.origin = VictimOrigin;
 
             victim.sustainDamage(@ent, @ent, dir, 0, POWERUPS_kb_amount_weapon(ent.weapon, damage) * this.rands[0], 0, MOD_BARREL);
@@ -1606,7 +1630,7 @@ class cPowerUpLaunch : cPowerUp {
                     ents[j].target = "fasterProjectile"; // tag them to not use them again
                 }
             }
-        };
+        }
     };
 
     class cPowerUpFreezeEnemies : cPowerUp {
@@ -2076,7 +2100,8 @@ void POWERUPS_clone_pain(Entity @ent, Entity @other, float kick, float damage) {
 };
 
 void POWERUPS_clone_dealDamageToAttacker(Entity @clone, Entity @owner, Entity @attacker) {
-    attacker.sustainDamage(@clone, @owner, Vec3(0, 0, 0), 50, 0, 0, MOD_HIT);
+    float damage = ( gametype.isInstagib ? 1000.0f : 50.0f);
+    attacker.sustainDamage(@clone, @owner, Vec3(0, 0, 0), damage, 0, 0, MOD_HIT);
 
     String message = "You attacked a clone of " + owner.client.name + S_COLOR_WHITE + "!";
     G_CenterPrintMsg(@attacker, message);
@@ -2327,8 +2352,6 @@ class cPowerUpSelfKnockback : cPowerUp {
 }
 
 // Grapple code taken and adapted from https://github.com/bds1337/grapplinghook/
-
-
 const int HOOK_IDLE     = 0;
 
 const int HOOK_RELEASE  = 2;
@@ -2357,7 +2380,7 @@ class cPowerUpGrapple : cPowerUp {
         );
     }
 
-    int sndHook = G_SoundIndex( "sounds/world/player_respawn", false );
+    int sndHook = G_SoundIndex( "sounds/items/item_spawn", false );
 
     Entity @beam;
     Entity @groundEntity;
@@ -2529,6 +2552,225 @@ class cPowerUpGrapple : cPowerUp {
     };
 }
 
+
+class cPowerUpMultiJump : cPowerUp {
+    cPowerUpMultiJump()
+    {
+        super(
+            POWERUPID_MULTIJUMP,
+            0,
+
+            { 3.5f },
+            { 5.5f },
+            { POWERUP_NUMBERTYPE_INTEGER },
+
+            0.0f, 0.0f,
+
+            "Air Jump",
+            S_COLOR_BLUE,
+            "You can jump %s times mid-air by pressing jump while in the air",
+            "You can jump %s times mid-air by pressing jump while in the air.",
+            "",
+            ""
+        );
+    }
+
+    uint previousKeys;
+    uint airtimeStart = 0;
+    int jumpsDone = 0;
+    float untilNextJump = 0.0f;
+    int maxJumps = rint(floor(this.rands[0]));
+
+    void select(Entity @ent) override
+    {
+        previousKeys = ent.client.pressedKeys;
+        // G_Print(this.rands[0] + " " + maxJumps + "\n");
+
+    }
+
+    float getStatFloat() override
+    {
+        float jumpFrac = (float(maxJumps - jumpsDone + untilNextJump) / float(maxJumps));
+        if (jumpFrac < ( 1.0f / float(maxJumps) ))
+            jumpFrac *= -1;
+
+        return jumpFrac;
+    };
+
+
+    void think(Entity @ent) override
+    {
+        // G_Print("aS:"+airtimeStart+" jD:"+jumpsDone+"\n");
+        if ( POWERUPS_isOnGround(@ent) && ( airtimeStart != 0 || jumpsDone != 0 ) )
+        {
+            // G_Print("Jump reset\n");
+            airtimeStart = 0;
+        }
+        if ( POWERUPS_isOnGround(@ent) && jumpsDone != 0 )
+        {
+            untilNextJump += 0.01 * frameTime;
+        }
+        if (untilNextJump >= 1.0f)
+        {
+            untilNextJump = 0.0f;
+            jumpsDone--;
+        }
+        // G_Print("jD:"+jumpsDone+" uNJ:"+untilNextJump+" mJ:"+maxJumps+"\n");
+
+        if ( !POWERUPS_isOnGround(@ent) && airtimeStart == 0)
+        {
+            airtimeStart = levelTime;
+        }
+        if ( !POWERUPS_isOnGround(@ent) && POWERUPS_isKeyPressed(@ent.client, KEY_JUMP) && !POWERUPS_isKeyPressed(previousKeys, KEY_JUMP) && levelTime - airtimeStart > 100 && jumpsDone < maxJumps )
+        {
+            jumpsDone++;
+            // G_Print("Midair jump " + jumpsDone + "\n");
+            Vec3 vel = ent.velocity;
+            if (vel.z < 0)
+                vel.z = 0;
+            vel.z += ent.client.pmoveJumpSpeed;
+            ent.velocity = vel;
+            airtimeStart = levelTime;
+        }
+        previousKeys = ent.client.pressedKeys;
+    }
+
+}
+
+// This is somewhat buggy with rockets
+class cPowerUpHomingProjectiles : cPowerUp {
+    cPowerUpHomingProjectiles()
+    {
+        super(
+            POWERUPID_HOMINGPROJS,
+            0,
+
+            { 0.0f },
+            { 0.0f },
+            { POWERUP_NUMBERTYPE_NONE },
+
+            0.0f,
+            0.0f,
+
+            "Homing Projectiles",
+            S_COLOR_GREEN,
+            "Your rockets and plasma are automatically aimed at an enemy. Your grenades and gunblade blasts follow the enemy.",
+            "Your projectiles home in on an enemy.",
+            ""
+          );
+    }
+
+    void think(Entity @ent) override
+    {
+        array<String> projectile_classnames = { "rocket", "grenade", "plasma", "gunblade_blast" };
+        for (uint i = 0; i < projectile_classnames.length(); i++)
+        {
+            array<Entity @> @ents = G_FindByClassname(projectile_classnames[i]);
+
+            for (uint j = 0; j < ents.length(); j++)
+            {
+                if (@ents[j].owner != @ent)
+                    continue;
+
+                Entity @target = null;
+                bool alreadyHasTarget = false;
+
+                if (!ents[j].target.empty() ) {
+                    if ( ents[j].target.toInt() == ent.playerNum )
+                        continue;
+                    // G_Print(ents[j].target);
+                    alreadyHasTarget = true;
+                    @target = G_GetClient(ents[j].target.toInt()).getEnt();
+                }
+                else
+                {
+                    ents[j].target = ent.playerNum;
+                }
+
+                Vec3 start = ents[j].origin;
+
+                if (!alreadyHasTarget)
+                {
+                    int enemyTeam = ent.team == TEAM_ALPHA ? TEAM_BETA : TEAM_ALPHA;
+                    array<int> allPlayers = POWERUPS_teamAlivePlayerList(enemyTeam);
+                    for (int k = 0; k < maxClients; k++)
+                    {
+                        Entity @player = G_GetClient(k).getEnt();
+
+                        if (@player == @ent || player.team == ent.team || player.isGhosting() ) {
+                            continue;
+                        }
+                    }
+
+                    Vec3 entForward, right, up;
+                    ent.angles.angleVectors(entForward, right, up);
+
+                    float bestDot = 0.90f;                       // come on, you have to actually look at the player youre targeting!
+
+                    for (uint k = 0; k < allPlayers.length(); k++)
+                    {
+                        Entity @enemy = G_GetClient(allPlayers[k]).getEnt();
+                        if (@enemy == null || enemy.isGhosting())
+                            continue;
+
+                        Vec3 dirToEnemy = enemy.origin - ent.origin;
+                        dirToEnemy.normalize();
+
+                        float dot = entForward.x * dirToEnemy.x + entForward.y * dirToEnemy.y + entForward.z * dirToEnemy.z;
+                        if (dot > bestDot)
+                        {
+                            bestDot = dot;
+                            @target = @enemy;
+                        }
+                    }
+                }
+
+                if ( (@target == null || target.isGhosting() || @target.client == null || target.team == ent.team )
+                    || ( @powerUp[target.playerNum] != null && powerUp[target.playerNum].powerupID == POWERUPID_INVISIBILITY && powerUp[target.playerNum].ability )
+                    || ( alreadyHasTarget && (ents[j].classname == "rocket" || ents[j].classname == "plasma") ) )
+                    continue;
+
+                if (!alreadyHasTarget)
+                {
+
+                    Trace trace;
+                    trace.doTrace(start, Vec3(0, 0, 0), Vec3(0, 0, 0), target.origin, ent.entNum, MASK_SHOT);
+
+                    if (trace.entNum != target.entNum)
+                        continue;
+
+                    ents[j].target = target.playerNum;
+
+                }
+
+                Vec3 enemyOrigin = target.origin;
+
+                float distance = start.distance(enemyOrigin);
+
+                Vec3 vel = ents[j].velocity;
+                float speed = ents[j].velocity.length();
+
+                if (distance < 2 * speed / frameTime )
+                    continue;
+                // G_Print(dir.x + " " + dir.y + " " + dir.z + " " + speed + "\n");
+
+                Vec3 dir = enemyOrigin - start;
+                dir.normalize();
+                vel = Vec3(dir.x * speed, dir.y * speed, dir.z * speed);
+
+                Vec3 targetAngles = dir.toAngles();
+                ents[j].velocity = vel;
+                if (ents[j].classname != "grenade")
+                    ents[j].angles = targetAngles;
+
+
+                // G_Print("cE: " + closestEnemy.client.name + "\n");
+
+            }
+        }
+    }
+  }
+
 // utils
 
 void POWERUPS_fakeChatToTeam( int chatPlayerNum, String message, bool teamChat = true ) {
@@ -2570,7 +2812,8 @@ void POWERUPS_autoteamCommunicate_Kill(Entity @ent, Entity @attacker = null)
             // POWERUPS_fakeChatToTeam( ent.playerNum, "I was fragged " + ( @attacker.client != null ? "by " + attacker.client.name : "" ) + S_COLOR_YELLOW + " who has " + attackerHealth + " health and " + attackerArmor + " armor. They have the " + attackerPwr.name + " powerup");
 
             if (!attackerIsDead)
-                POWERUPS_fakeChatToTeam( ent.playerNum, ( @attacker.client != null ? attacker.client.name.removeColorTokens() : "" ) + S_COLOR_YELLOW + " " + attackerHealth + " " + attackerArmor + " " + attackerPwr.name);
+                POWERUPS_fakeChatToTeam( ent.playerNum, ( @attacker.client != null ? attacker.client.name.removeColorTokens() : "" ) + S_COLOR_YELLOW + " " +
+                (!gametype.isInstagib ? attackerHealth + " " + attackerArmor + " " : "" ) + attackerPwr.name);
         }
     }
 }
@@ -2578,7 +2821,10 @@ void POWERUPS_autoteamCommunicate_Kill(Entity @ent, Entity @attacker = null)
 void POWERUPS_clearPowerupState(Entity @ent)
 {
     if (ent.classname == "clone")
+    {
+        ent.freeEntity();
         return;
+    }
     cPowerUp @pwr = @powerUp[ent.playerNum];
     pwr.clearPowerup(@ent);
 
@@ -2677,7 +2923,6 @@ void POWERUPS_initialise()
                 POWERUPID_JUMP,
                 POWERUPID_EXTRADMG,
                 POWERUPID_JETPACK,
-                POWERUPID_EXTRAKB,
                 POWERUPID_LAUNCH,
                 POWERUPID_INVISIBILITY,
                 POWERUPID_QUAD,
@@ -2690,7 +2935,9 @@ void POWERUPS_initialise()
                 POWERUPID_CLONE,
                 POWERUPID_TELEPORTER,
                 POWERUPID_SELFKB,
-                POWERUPID_GRAPPLE
+                POWERUPID_GRAPPLE,
+                POWERUPID_MULTIJUMP,
+                POWERUPID_HOMINGPROJS
             };
         else
             chooseablePowerupList = {
@@ -2703,7 +2950,8 @@ void POWERUPS_initialise()
                 POWERUPID_INVISIBILITY,
                 POWERUPID_IMMORTALITY,
                 POWERUPID_CLONE,
-                POWERUPID_TELEPORTER
+                POWERUPID_TELEPORTER,
+                POWERUPID_GRAPPLE
             };
 }
 

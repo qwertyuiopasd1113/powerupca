@@ -13,6 +13,13 @@ bool POWERUPS_Command( Client @client, const String &cmdString, const String &ar
         return true;
     }
 
+    else if ( cmdString == "pca_credits" )
+    {
+        POWERUPS_Command_credits( @client );
+        return true;
+    }
+
+
     return false;
 }
 
@@ -28,6 +35,15 @@ void POWERUPS_Command_classAction( Client @client ) {
         return;
 
     pwr.classAction(ent);
+};
+
+
+void POWERUPS_Command_credits( Client @client ) {
+    G_PrintMsg(client.getEnt(),
+    S_COLOR_GREEN + "Powerups Clan Arena " + S_COLOR_MAGENTA + "v" + POWERUPS_VERSION + " " + S_COLOR_WHITE + "by" + S_COLOR_CYAN + " algolineu\n"
+    + S_COLOR_YELLOW + "Jetpack code by MSC from FutsBall\n"
+    + S_COLOR_YELLOW + "Grappling hook code by bds1337 on GitHub\n"
+    );
 };
 
 
@@ -109,6 +125,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 void POWERUPS_Command_Register() {
     G_RegisterCommand( "classaction1" );
     G_RegisterCommand( "op_setPowerup" );
+    G_RegisterCommand( "pca_credits" );
 }
 
 String POWERUPS_allClientsMsg() {

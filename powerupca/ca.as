@@ -276,6 +276,8 @@ class cCARound
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
+                    if ( ent.isGhosting() )
+                        continue;
                     if ( POWERUPS_nextRoundID[ent.playerNum] != 0 ) {
                         POWERUPS_applyPowerupByID( @ent, POWERUPS_nextRoundID[ent.playerNum] );
                         POWERUPS_nextRoundID[ent.playerNum] = 0;
@@ -341,6 +343,8 @@ class cCARound
                 @ent = @team.ent( j );
                 if ( !ent.isGhosting() )
                 {
+                    POWERUPS_clearPowerupState(ent);
+
                     count_beta++;
                     @lastManStanding = @ent;
                     // ch : add round
@@ -1233,9 +1237,9 @@ void GT_SpawnGametype()
 
 void GT_InitGametype()
 {
-    gametype.title = "Superpower Clan Arena";
-    gametype.version = "1.04" + "   " + POWERUPS_VERSION;
-    gametype.author = "Warsow Development Team" + "   " + POWERUPS_AUTHOR;
+    gametype.title = "Powerup Clan Arena";
+    gametype.version = "1.04";
+    gametype.author = "Warsow Development Team";
 
     // if the gametype doesn't have a config file, create it
     if ( !G_FileExists( "configs/server/gametypes/" + gametype.name + ".cfg" ) )
