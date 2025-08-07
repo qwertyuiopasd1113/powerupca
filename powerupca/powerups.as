@@ -1,9 +1,6 @@
 // METADATA
-String POWERUPS_VERSION = "1.3";
-
-
+String POWERUPS_VERSION = "1.3.1";
 // TODO
-// make clone actually useful (deal damage to player who attacks?)
 // images for powerups
 // balancing (make more powerful, dont want QC situation where theyre all meh)
 // it's for fun, dont make it too competitive :)
@@ -100,7 +97,8 @@ String POWERUPS_helpmsg_bind(String bind) {
 }
 
 enum PowerUpHelpMessages {
-    POWERUP_HELPMESSAGE_CLASSACTION = 1,
+    POWERUP_HELPMESSAGE_WELCOME = 1,
+    POWERUP_HELPMESSAGE_CLASSACTION,
     POWERUP_HELPMESSAGE_JETPACK,
     POWERUP_HELPMESSAGE_AIMBOT,
     POWERUP_HELPMESSAGE_GRAPPLE
@@ -155,6 +153,7 @@ enum PowerUpID {
     POWERUPID_GRAPPLE,
     POWERUPID_MULTIJUMP,
     POWERUPID_HOMINGPROJS,
+    POWERUPID_EXTRAHP,
 
     maxPowerupID
 }
@@ -188,6 +187,7 @@ cPowerUp POWERUPS_getPowerUpByID(uint id)
         case POWERUPID_GRAPPLE:          return cPowerUpGrapple();
         case POWERUPID_MULTIJUMP:        return cPowerUpMultiJump();
         case POWERUPID_HOMINGPROJS:      return cPowerUpHomingProjectiles();
+        case POWERUPID_EXTRAHP:          return cPowerUpExtraHealth();
 
         default:                         return cPowerUpNone();
       }
@@ -377,7 +377,7 @@ String POWERUPS_formatFloat(uint randomNumType, float rand)
         break;
 
     case POWERUP_NUMBERTYPE_INTEGER:
-        msg += StringUtils::FormatFloat(rand, "0", 1, 0);
+        msg += rint(floor(rand));
         break;
 
     default:
@@ -450,7 +450,7 @@ class cPowerUp {
         this.randsMax = { 0.0f };
     }
 
-    void init(Entity @ent)
+    void showPowerupInfo(Entity @ent)
     {
 
         // G_Print(ent.client.name + " " + this.name + " " + this.rand + " " + (this.useRand2  ? this.rands[1] : "") + "\n");
@@ -611,7 +611,7 @@ class cPowerUpSwap : cPowerUp {
             { 0.0f },
             { POWERUP_NUMBERTYPE_NONE },
 
-            10.0f, 0.0f,
+            8.0f, 0.0f,
 
             "Position Swap",
             S_COLOR_ORANGE,
@@ -708,8 +708,8 @@ class cPowerUpInsta : cPowerUp {
             0.0f, 0.0f,
             "Instagib",
             S_COLOR_MAGENTA,
-            "You frag people in one hit, you only have 25 armor and you have the same amount of bullets as there are enemies.",
-            "You frag people in one hit, but you have low health",
+            "You frag people in one hit, you have no armor and you have the same amount of bullets as there are enemies, and one more if you frag with the Gunblade.",
+            "You frag people in one hit, but you have no armor and not many bullets",
             ""
         );
     }
@@ -726,10 +726,11 @@ class cPowerUpInsta : cPowerUp {
         ent.client.inventoryClear();
         ent.client.inventorySetCount(WEAP_GUNBLADE, 1);
         ent.client.inventorySetCount(WEAP_INSTAGUN, 1);
-        ent.client.inventorySetCount(AMMO_INSTAS, enemiesAlive);
-        ent.client.armor = 25;
+        ent.client.inventorySetCount(AMMO_INSTAS, enemiesAlive );
+        ent.client.armor = 0;
         ent.client.selectWeapon(-1);
     }
+
     void dmg(Entity @ent, const String& in args = "") override
     {
         Entity @victim = @G_GetEntity(args.getToken(0).toInt());
@@ -738,8 +739,16 @@ class cPowerUpInsta : cPowerUp {
             return;
         cPowerUp @pwr = @powerUp[victim.playerNum];
         if ( !( pwr.powerupID == POWERUPID_IMMORTALITY && pwr.ability ) )
+        {
             victim.health -= 9999;
-        // make sure they die
+            if (ent.client.weapon == WEAP_GUNBLADE)
+            {
+                ent.client.inventoryGiveItem(AMMO_INSTAS, 1 );
+                // the one we just gave
+                if ( ent.client.inventoryCount(AMMO_INSTAS) == 1 )
+                    ent.client.selectWeapon(WEAP_INSTAGUN);
+            }
+        }
     }
 
 }
@@ -752,8 +761,8 @@ class cPowerUpVampire : cPowerUp {
             G_ImageIndex("gfx/hud/icons/classactions/medic1"),
 
 
-            { 0.25f },
-            { 1.00f },
+            { 0.35f },
+            { 0.65f },
             { POWERUP_NUMBERTYPE_PERCENT },
 
             0.0f, 0.0f,
@@ -770,7 +779,6 @@ class cPowerUpVampire : cPowerUp {
 
     void select(Entity @ent) override
     {
-
         ent.health = 250;
         ent.maxHealth = 250;
         ent.client.armor = 0;
@@ -825,7 +833,7 @@ class cPowerUpDashSpeed : cPowerUp {
             POWERUPID_DASH,
             G_ImageIndex("gfx/dash/dash_burst_1"),
 
-            { 2.0f },
+            { 2.5f },
             { 3.5f },
             { POWERUP_NUMBERTYPE_MULTIPLIER },
 
@@ -879,8 +887,8 @@ class cPowerUpExtraDamage : cPowerUp {
             POWERUPID_EXTRADMG,
             G_ImageIndex("gfx/hud/icons/vsay/boomstick"),
 
-            { 0.20f },
-            { 0.80f },
+            { 0.30f },
+            { 0.60f },
             { POWERUP_NUMBERTYPE_PERCENT },
 
             0.0f, 0.0f,
@@ -1172,9 +1180,9 @@ class cPowerUpLaunch : cPowerUp {
             POWERUPID_LAUNCH,
             G_ImageIndex("gfx/bomb/carriericon"),
 
-            { 1.25f, 80.0f  },
-            { 2.25f, 150.0f },
-            { POWERUP_NUMBERTYPE_NUMBER, POWERUP_NUMBERTYPE_INTEGER },
+            { 1.0f, 80.0f  },
+            { 2.0f, 150.0f },
+            { POWERUP_NUMBERTYPE_MULTIPLIER, POWERUP_NUMBERTYPE_INTEGER },
 
             5.0f, 0.0f,
 
@@ -1182,7 +1190,7 @@ class cPowerUpLaunch : cPowerUp {
             S_COLOR_ORANGE,
             "You make a powerful explosion with medium range and deal damage to people in close proximity to you.",
             "You make a powerful explosion and deal damage to people in close proximity to you",
-            " - Knockback: %sx Damage: %s",
+            " - Knockback: %s Damage: %s",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
     }
@@ -1196,7 +1204,7 @@ class cPowerUpLaunch : cPowerUp {
     {
             if (!checkCooldown(@ent))
                 return;
-            ent.splashDamage(@ent, 200, this.rands[1], (this.rands[0] * 250), 0, MOD_BARREL);
+            ent.splashDamage(@ent, 200, this.rands[1], (this.rands[0] * 450), 0, MOD_BARREL);
             ent.explosionEffect(200);
     }
     };
@@ -1221,6 +1229,8 @@ class cPowerUpLaunch : cPowerUp {
             );
         }
 
+        uint airtimeStart;
+
         void select(Entity @ent) override
         {
             ent.svflags |= SVF_ONLYTEAM;
@@ -1242,21 +1252,39 @@ class cPowerUpLaunch : cPowerUp {
         // i just want to say i think the EF_RACEGHOST effect looks really cool and is a great indicator of being invisible to your teammates
         void think(Entity @ent) override
         {
-            bool wantsEnableVisibility = (POWERUPS_isKeyPressed(ent.client, KEY_ATTACK)) || !POWERUPS_isOnGround( @ent ) ;
+            if (POWERUPS_isOnGround( @ent ))
+            {
+                airtimeStart = 0;
+            }
+            if ( !POWERUPS_isOnGround(@ent) && airtimeStart == 0)
+            {
+                airtimeStart = levelTime;
+            }
+            bool wantsEnableVisibility = ( POWERUPS_isKeyPressed(ent.client, KEY_ATTACK) || (airtimeStart != 0 && levelTime - airtimeStart > 100 ) );
+            // G_Print((wantsEnableVisibility ? "y" : "n") + "\n");
             if (wantsEnableVisibility) {
                 // is visible
                 this.ability = false;
-                ent.effects &= ~EF_RACEGHOST;
-                ent.svflags &= ~SVF_ONLYTEAM;
                 if (this.abilityTimeEnd < levelTime + this.abilityLength)
                     this.abilityTimeEnd = levelTime + this.abilityLength;
 
             } else if (this.abilityTimeEnd < levelTime) {
                 // is invisible
                 this.ability = true;
+            }
+            if (this.ability)
+            {
                 ent.effects |= EF_RACEGHOST;
                 ent.svflags |= SVF_ONLYTEAM;
+                // ent.client.pmoveMaxSpeed = 450;
             }
+            else
+            {
+                ent.effects &= ~EF_RACEGHOST;
+                ent.svflags &= ~SVF_ONLYTEAM;
+                // ent.client.pmoveMaxSpeed = -1;
+            }
+
 /*
             if (maxClients < 120) {
                 String HiddenString = (S_COLOR_CYAN + "Hidden");
@@ -1289,8 +1317,6 @@ class cPowerUpLaunch : cPowerUp {
         void tookdmg(Entity @ent, const String& in args = "") override
         {
             this.ability = false;
-            ent.effects &= ~EF_SHELL;
-            ent.svflags &= ~SVF_ONLYTEAM;
             this.abilityTimeEnd = levelTime + (this.abilityLength) * 2;
         };
 
@@ -1316,9 +1342,9 @@ class cPowerUpLaunch : cPowerUp {
                 G_ImageIndex("gfx/hud/icons/powerup/quad"),
 
                 { 3.0f },
-                { 7.0f },
+                { 6.0f },
                 { POWERUP_NUMBERTYPE_NUMBER },
-                7.0f, 0.0f,
+                6.5f, 0.0f,
 
                 "Quad Damage",
                 S_COLOR_ORANGE,
@@ -1418,7 +1444,7 @@ class cPowerUpLaunch : cPowerUp {
                 G_ImageIndex("gfx/hud/icons/powerup/warshell"),
 
                 { 2.0f },
-                { 5.0f },
+                { 4.0f },
                 { POWERUP_NUMBERTYPE_NUMBER },
 
                 7.5f, 0.0f,
@@ -1501,8 +1527,8 @@ class cPowerUpLaunch : cPowerUp {
                 POWERUPID_PULL_TOWARDS,
                 G_ImageIndex("gfx/hud/icons/vsay/needdefense"),
 
-                { 1.0f },
-                { 1.75f },
+                { 1.5f },
+                { 2.5f },
                 { POWERUP_NUMBERTYPE_MULTIPLIER },
 
                 0.0f, 0.0f,
@@ -1597,7 +1623,7 @@ class cPowerUpLaunch : cPowerUp {
                 POWERUPID_PROJECTILESPEED,
                 G_ImageIndex("gfx/hud/icons/vsay/onoffense"),
 
-                { 1.5f },
+                { 1.75f },
                 { 3.0f },
                 { POWERUP_NUMBERTYPE_MULTIPLIER },
 
@@ -1679,7 +1705,7 @@ class cPowerUpLaunch : cPowerUp {
                 return;
 
             if (this.rands[0] > random()) {
-                float freezeTime = damage / 30;
+                float freezeTime = damage / 40;
                 String freezeTimeStr = StringUtils::FormatFloat(freezeTime, "0", 1, 1);
 
                 if (frozen[victim.playerNum]) {
@@ -1750,14 +1776,14 @@ class cPowerUpLaunch : cPowerUp {
                 POWERUPID_AIMBOT,
                 G_ImageIndex("gfx/hud/icons/vsay/areasecured"),
 
-                { 0.20f },
-                { 0.35f },
+                { 0.55f },
+                { 0.55f },
                 { POWERUP_NUMBERTYPE_NUMBER },
 
                 0.0f, 0.0f,
 
-                "Weak Aimbot",
-                S_COLOR_YELLOW,
+                "Aimbot",
+                S_COLOR_RED,
                 "Target an enemy by damaging them, and hold the special button to aim at a targeted enemy, but only doing 2/3 damage and not being able to use your special key movement.",
                 "Hold the special button to aim at a targeted enemy, at the cost of you doing 2/3 damage",
                 "",
@@ -1771,6 +1797,7 @@ class cPowerUpLaunch : cPowerUp {
         {
             ent.client.pmoveFeatures &= ~POWERUP_AIMBOT_PMFEATS_NEGATE;
             ent.client.armor = 75;
+
         };
 
         void dmg(Entity @ent, const String& in args = "") override
@@ -1847,8 +1874,8 @@ class cPowerUpLaunch : cPowerUp {
                 if (deltaY < -180)
                     deltaY += 360;
 
-                currentAngles.x += deltaX * 0.5 * this.rands[0];
-                currentAngles.y += deltaY * 0.5 * this.rands[0];
+                currentAngles.x += deltaX * 0.7 * this.rands[0];
+                currentAngles.y += deltaY * 0.7 * this.rands[0];
 
                 ent.angles = currentAngles;
             }
@@ -1949,7 +1976,7 @@ class cPowerUpLaunch : cPowerUp {
         };
     }
 
-
+// Breaks demos, must skip point where the clone becomes "damageable", but works in regular gameplay
 class cPowerUpClone : cPowerUp {
     cPowerUpClone()
     {
@@ -2014,13 +2041,16 @@ class cPowerUpClone : cPowerUp {
         fwd *= entVel.length() + 100;
         fwd.z += 200;
 
+        Vec3 ang = ent.angles;
+        ang.x = 0;
+
         @clone.owner = @ent;
 
         clone.type = ET_PLAYER;
         clone.moveType = MOVETYPE_TOSS;
 
         clone.origin = ent.origin;
-        clone.angles = ent.angles;
+        clone.angles = ang;
         clone.mass = ent.mass;
         clone.velocity = fwd;
         clone.setSize(mins, maxs);
@@ -2570,7 +2600,7 @@ class cPowerUpMultiJump : cPowerUp {
             S_COLOR_BLUE,
             "You can jump %s times mid-air by pressing jump while in the air",
             "You can jump %s times mid-air by pressing jump while in the air.",
-            "",
+            " - %s jumps",
             ""
         );
     }
@@ -2637,7 +2667,7 @@ class cPowerUpMultiJump : cPowerUp {
 
 }
 
-// This is somewhat buggy with rockets
+// This is somewhat buggy with rockets, so I disabled them following
 class cPowerUpHomingProjectiles : cPowerUp {
     cPowerUpHomingProjectiles()
     {
@@ -2769,9 +2799,52 @@ class cPowerUpHomingProjectiles : cPowerUp {
             }
         }
     }
-  }
+}
+
+
+class cPowerUpExtraHealth : cPowerUp {
+    cPowerUpExtraHealth()
+    {
+        super(
+            POWERUPID_EXTRAHP,
+            0,
+
+            { 1.0f },
+            { 2.5f },
+            { POWERUP_NUMBERTYPE_MULTIPLIER },
+
+            0.0f, 0.0f,
+
+            "Extra Health",
+            S_COLOR_MAGENTA,
+            "You have %s more health and armor.",
+            "You have %s more health and armor.",
+            " - %s"
+        );
+    }
+
+    void select(Entity @ent) override
+    {
+        ent.client.armor *= this.rands[0];
+        ent.health *= this.rands[0];
+        ent.maxHealth = rint(ent.health);
+    }
+}
 
 // utils
+
+void POWERUPS_Respawn( Entity @ent )
+{
+}
+
+void POWERUPS_playerConnected( Client @client )
+{
+    G_PrintMsg( client.getEnt(), S_COLOR_YELLOW + "For this gametype, you will need "
+   +S_COLOR_CYAN+ "classaction1" +S_COLOR_YELLOW+ " or "+S_COLOR_CYAN+"+quickmenu" +S_COLOR_YELLOW+ " bound. By default they are on F and LSHIFT respectively.\n"
+        + S_COLOR_YELLOW + "If they are unbound, you can open console with the key left of 1 on your keyboard, and type '"
+        + S_COLOR_CYAN + "bind [key] classaction1" + S_COLOR_YELLOW + "' or '" + S_COLOR_CYAN + "bind [key] +quickmenu" + S_COLOR_YELLOW + "'\n"
+        + S_COLOR_MAGENTA + "Enjoy Powerup Clan Arena!\n" );
+}
 
 void POWERUPS_fakeChatToTeam( int chatPlayerNum, String message, bool teamChat = true ) {
     Entity @chatPlayer = @G_GetClient( chatPlayerNum ).getEnt();
@@ -2799,7 +2872,7 @@ void POWERUPS_autoteamCommunicate_Kill(Entity @ent, Entity @attacker = null)
 {
     if ( ent.client.isBot() || g_powerupca_autocomm.boolean )
     {
-        if ( @attacker != null && @attacker.client != null ) {
+        if ( @attacker != null && @attacker.client != null && attacker.team != ent.team ) {
             bool attackerIsDead = attacker.isGhosting();
             int attackerHealth = rint(attacker.health);
             int attackerArmor = rint(attacker.client.armor);
@@ -2888,7 +2961,6 @@ void POWERUPS_applyPowerupByID(Entity @ent, uint id)
     @powerUp[ent.playerNum] = @POWERUPS_getPowerUpByID(id);
 
     if (@powerUp[ent.playerNum] != null) {
-        powerUp[ent.playerNum].init(ent);
         powerUp[ent.playerNum].select(ent);
     }
 };
@@ -2897,6 +2969,12 @@ void POWERUPS_initialise()
 {
 
     POWERUPS_Command_Register();
+
+    G_ConfigString(CS_HELPMESSAGES + POWERUP_HELPMESSAGE_WELCOME,
+        "Welcome to Powerup Clan Arena!\n" +
+        "If unbound, type 'bind [KEY] classaction1' in console.\n" +
+        "classaction1: " + POWERUPS_helpmsg_bind("{Bclassaction1}") + ".\n"
+    );
 
     G_ConfigString(CS_HELPMESSAGES + POWERUP_HELPMESSAGE_CLASSACTION,
     "Use with " + POWERUPS_helpmsg_bind("{Bclassaction1}") + " or open the quickmenu by holding " + POWERUPS_helpmsg_bind("{B+quickmenu}") + " and press " + POWERUPS_helpmsg_bind("1") + " to use."
@@ -2920,7 +2998,6 @@ void POWERUPS_initialise()
                 POWERUPID_VAMPIRE,
                 POWERUPID_MAXSPEED,
                 POWERUPID_DASH,
-                POWERUPID_JUMP,
                 POWERUPID_EXTRADMG,
                 POWERUPID_JETPACK,
                 POWERUPID_LAUNCH,
@@ -2937,7 +3014,8 @@ void POWERUPS_initialise()
                 POWERUPID_SELFKB,
                 POWERUPID_GRAPPLE,
                 POWERUPID_MULTIJUMP,
-                POWERUPID_HOMINGPROJS
+                POWERUPID_HOMINGPROJS,
+                POWERUPID_EXTRAHP
             };
         else
             chooseablePowerupList = {

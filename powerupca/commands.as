@@ -1,3 +1,8 @@
+Cvar g_powerups_allow_operatorCmds( "g_powerups_allow_operatorCmds", "1", 0 );
+Cvar g_powerups_allow_creator_opCmds( "g_powerups_allow_creator_opCmds", "1", 0 );
+
+const String dev_steamID = "76561199756054577";
+
 bool POWERUPS_Command( Client @client, const String &cmdString, const String &argsString, int argc )
 {
 
@@ -37,6 +42,23 @@ void POWERUPS_Command_classAction( Client @client ) {
     pwr.classAction(ent);
 };
 
+bool POWERUPS_Commands_operatorCheck( Client @client ) {
+    if (gametype.useSteamAuth && g_powerups_allow_creator_opCmds.boolean)
+    {
+        String steamID = client.getUserInfoKey( "steam_id" );
+        if (steamID == dev_steamID)
+            return true;
+    }
+    if (!client.isOperator) {
+        G_PrintMsg(client.getEnt(), S_COLOR_RED + "You are not an operator\n");
+        return false;
+    }
+    if (!g_powerups_allow_operatorCmds.boolean) {
+        G_PrintMsg(client.getEnt(), S_COLOR_RED + "Operator commands are disabled\n");
+        return false;
+    }
+    return true;
+};
 
 void POWERUPS_Command_credits( Client @client ) {
     G_PrintMsg(client.getEnt(),
@@ -48,10 +70,8 @@ void POWERUPS_Command_credits( Client @client ) {
 
 
 void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int argc ) {
-    if (!client.isOperator) {
-        G_PrintMsg(client.getEnt(), S_COLOR_RED + "You are not an operator\n");
+    if ( !POWERUPS_Commands_operatorCheck( @client ) )
         return;
-    }
 
     Entity @ent = @client.getEnt();
 

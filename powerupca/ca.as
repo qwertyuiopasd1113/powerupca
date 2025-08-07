@@ -292,6 +292,8 @@ class cCARound
                 {
                     Entity @ent = @team.ent( j );
                     G_PrintMsg(ent, powerupString);
+                    if ( @powerUp[ent.playerNum] != null )
+                        powerUp[ent.playerNum].showPowerupInfo( @ent );
                 }
             }
 
@@ -982,9 +984,14 @@ void GT_updateScore( Client @client )
 // Warning: client can be null
 void GT_ScoreEvent( Client @client, const String &score_event, const String &args )
 {
-    if ( score_event == "enterGame" || score_event == "disconnect" )
+    if ( score_event == "enterGame" )
     {
+        POWERUPS_playerConnected( @client );
         POWERUPS_applyPowerupByID(client.getEnt(), 0);
+    }
+    if ( score_event == "disconnect" )
+    {
+        POWERUPS_clearPowerupState(client.getEnt());
     }
 
     else if ( score_event == "dmg" )
@@ -1108,6 +1115,8 @@ void GT_PlayerRespawn( Entity @ent, int old_team, int new_team )
 
     // add a teleportation effect
     ent.respawnEffect();
+
+    POWERUPS_Respawn( @ent );
 }
 
 // Thinking function. Called each frame
