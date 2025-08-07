@@ -37,6 +37,10 @@ const int CA_LAST_MAN_STANDING_BONUS = 0; // 0 points for each frag
 int[] caBonusScores( maxClients );
 int[] caLMSCounts( GS_MAX_TEAMS ); // last man standing bonus for each team
 
+String powerupStringStart = S_COLOR_GREEN + "Your team's powerups:" + S_COLOR_WHITE + "\n";
+String powerupStringStartEnemy = S_COLOR_GREEN + "Enemy team's powerups:" + S_COLOR_WHITE + "\n";
+
+String[] powerupString( GS_MAX_TEAMS );
 class cCARound
 {
     int state;
@@ -269,10 +273,10 @@ class cCARound
             for ( int i = TEAM_PLAYERS; i < GS_MAX_TEAMS; i++ )
             {
                 Team @team = @G_GetTeam( i );
+                powerupString[i] = "";
 
                 // give all players their powerup
 
-                String powerupString = S_COLOR_GREEN + "Your team's powerups:" + S_COLOR_WHITE + "\n";
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
@@ -286,14 +290,17 @@ class cCARound
                         POWERUPS_applyRandomPowerup( @ent );
 
                     cPowerUp @pwr = @powerUp[ent.playerNum];
-                    powerupString += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.color + pwr.name + S_COLOR_WHITE + " \n");
+                    powerupString[i] += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.color + pwr.name + S_COLOR_WHITE + " \n");
                 }
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
-                    G_PrintMsg(ent, powerupString);
+                    G_PrintMsg(ent, powerupStringStart + powerupString[i]);
                     if ( @powerUp[ent.playerNum] != null )
+                    {
                         powerUp[ent.playerNum].showPowerupInfo( @ent );
+                        powerUp[ent.playerNum].select( @ent );
+                    }
                 }
             }
 
@@ -335,6 +342,8 @@ class cCARound
                     if( @ent.client != null )
                     	ent.client.stats.addRound();
                 }
+                G_PrintMsg(ent, powerupStringStartEnemy + powerupString[TEAM_BETA]);
+
                 count_alpha_total++;
             }
 
@@ -353,6 +362,8 @@ class cCARound
                     if( @ent.client != null )
                     	ent.client.stats.addRound();
                 }
+                G_PrintMsg(ent, powerupStringStartEnemy + powerupString[TEAM_ALPHA]);
+
                 count_beta_total++;
             }
 

@@ -1,5 +1,5 @@
 // METADATA
-String POWERUPS_VERSION = "1.3.1";
+String POWERUPS_VERSION = "1.3.2";
 // TODO
 // images for powerups
 // balancing (make more powerful, dont want QC situation where theyre all meh)
@@ -352,7 +352,7 @@ const uint POWERUP_JETPACK_PMFEATS_NEGATE = (PMFEAT_CROUCH | PMFEAT_JUMP | PMFEA
 
 const uint POWERUP_FROZEN_PMFEATS_NEGATE = (PMFEAT_CROUCH | PMFEAT_JUMP | PMFEAT_DASH | PMFEAT_WALLJUMP);
 
-const uint POWERUP_AIMBOT_PMFEATS_NEGATE = (PMFEAT_DASH | PMFEAT_WALLJUMP);
+const uint POWERUP_AIMBOT_PMFEATS_NEGATE = (PMFEAT_CROUCH);
 
 const uint POWERUP_GRAPPLE_PMFEATS_NEGATE = (PMFEAT_DASH | PMFEAT_WALLJUMP);
 
@@ -624,7 +624,7 @@ class cPowerUpSwap : cPowerUp {
 
     void select(Entity @ent) override
     {
-        POWERUPS_setUpClassaction(@ent, "Swap");
+        POWERUPS_setUpQuickmenu(@ent, "Swap");
     }
 
     void classAction(Entity @ent) override
@@ -708,11 +708,43 @@ class cPowerUpInsta : cPowerUp {
             0.0f, 0.0f,
             "Instagib",
             S_COLOR_MAGENTA,
-            "You frag people in one hit, you have no armor and you have the same amount of bullets as there are enemies, and one more if you frag with the Gunblade.",
-            "You frag people in one hit, but you have no armor and not many bullets",
+            "You frag people in one hit, you have no armor, and you gain one more bullet if you frag with the Gunblade.",
+            "You frag people in one hit, but you have no armor and you have a long reload time if you miss.",
             ""
         );
     }
+
+
+    int instaAmmo = 0;
+    uint timeShot = 0;
+    bool hit = false;
+
+    void think(Entity @ent) override
+    {
+        //if it has went down by 1
+        if ( instaAmmo - 1 == ent.client.inventoryCount( AMMO_INSTAS ) && timeShot == 0 )
+        {
+            // G_Print("weapon " + i + " shot\n");
+            instaAmmo = ent.client.inventoryCount( AMMO_INSTAS );
+            timeShot = levelTime;
+            ent.client.inventorySetCount(AMMO_INSTAS, 0);
+        }
+        if ( (levelTime - timeShot >= 2000 && timeShot != 0) || hit )
+        {
+            timeShot = 0;
+            ent.client.inventorySetCount(AMMO_INSTAS, instaAmmo);
+            hit = false;
+        }
+        if ( instaAmmo == 0 )
+        {
+            ent.client.selectWeapon(WEAP_GUNBLADE);
+        }
+    }
+
+    float getStatFloat() override
+    {
+        return timeShot == 0 ? timeShot : ( float(levelTime - timeShot) / 2000 );
+    };
 
     void select(Entity @ent) override
     {
@@ -726,9 +758,17 @@ class cPowerUpInsta : cPowerUp {
         ent.client.inventoryClear();
         ent.client.inventorySetCount(WEAP_GUNBLADE, 1);
         ent.client.inventorySetCount(WEAP_INSTAGUN, 1);
-        ent.client.inventorySetCount(AMMO_INSTAS, enemiesAlive );
+
+        if (enemiesAlive + 1 > 5)
+            ent.client.inventorySetCount(AMMO_INSTAS, 5 );
+        else
+            ent.client.inventorySetCount(AMMO_INSTAS, enemiesAlive + 1 );
+
         ent.client.armor = 0;
         ent.client.selectWeapon(-1);
+
+
+        instaAmmo = ent.client.inventoryCount( AMMO_INSTAS );
     }
 
     void dmg(Entity @ent, const String& in args = "") override
@@ -738,15 +778,20 @@ class cPowerUpInsta : cPowerUp {
         if (@victim.client == null)
             return;
         cPowerUp @pwr = @powerUp[victim.playerNum];
+        hit = true;
         if ( !( pwr.powerupID == POWERUPID_IMMORTALITY && pwr.ability ) )
         {
             victim.health -= 9999;
             if (ent.client.weapon == WEAP_GUNBLADE)
             {
-                ent.client.inventoryGiveItem(AMMO_INSTAS, 1 );
+                instaAmmo++;
+                ent.client.inventorySetCount(AMMO_INSTAS, instaAmmo);
+                timeShot = levelTime - 2000;
                 // the one we just gave
                 if ( ent.client.inventoryCount(AMMO_INSTAS) == 1 )
+                {
                     ent.client.selectWeapon(WEAP_INSTAGUN);
+                }
             }
         }
     }
@@ -932,7 +977,7 @@ class cPowerUpJetpack : cPowerUp {
 
             "Jetpack",
             S_COLOR_GREEN,
-            "You can fly by holding jump, you can boost by holding special and you can go down faster by holding crouch. Be wary of your fuel!",
+            "You can fly by holding jump, you can boost by holding special and you can quicky descend by holding crouch. Be wary of your fuel!",
             "You can fly by holding jump and boost by holding special.",
             " - Power: %s",
             POWERUP_HELPMESSAGE_JETPACK
@@ -1002,7 +1047,7 @@ class cPowerUpJetpack : cPowerUp {
             }
             // cant descend and boost at the same time
             if ( POWERUPS_isKeyPressed(ent.client, KEY_CROUCH) && !POWERUPS_isKeyPressed(ent.client, KEY_SPECIAL) ) {
-                newVelocity.z -= 10;
+                newVelocity.z -= 1000 * (frameTime * 0.001f);
                 ent.velocity = newVelocity;
                 this.fuel -= 2.5 * (frameTime * 0.001f);
             }
@@ -1051,9 +1096,9 @@ class cPowerUpJetpack : cPowerUp {
         if (this.fuel < fuelMax && POWERUPS_isOnGround( @ent ) ) {
             float secondsToRefuel;
             if (!outOfFuel)
-                secondsToRefuel = 1.5f;
+                secondsToRefuel = 4.0f;
             else
-                secondsToRefuel = 3.0f;
+                secondsToRefuel = 5.0f;
 
             this.fuel += (fuelMax / secondsToRefuel) * (frameTime * 0.001f);
         }
@@ -1197,7 +1242,7 @@ class cPowerUpLaunch : cPowerUp {
 
     void select(Entity @ent) override
     {
-            POWERUPS_setUpClassaction(@ent, "Boom!");
+            POWERUPS_setUpQuickmenu(@ent, "Boom!");
     }
 
     void classAction(Entity @ent) override
@@ -1243,7 +1288,7 @@ class cPowerUpLaunch : cPowerUp {
                 ent.client.selectWeapon(-1);
             }
 
-            ent.client.armor = 75;
+            ent.client.armor = 100;
 
             this.abilityLength = rint(this.rands[0] * 1000);
             ent.client.pmoveMaxSpeed = 450;
@@ -1344,7 +1389,7 @@ class cPowerUpLaunch : cPowerUp {
                 { 3.0f },
                 { 6.0f },
                 { POWERUP_NUMBERTYPE_NUMBER },
-                6.5f, 0.0f,
+                7.0f, 0.0f,
 
                 "Quad Damage",
                 S_COLOR_ORANGE,
@@ -1357,7 +1402,7 @@ class cPowerUpLaunch : cPowerUp {
 
         void select(Entity @ent) override
         {
-            POWERUPS_setUpClassaction(@ent, "Activate Quad Damage");
+            POWERUPS_setUpQuickmenu(@ent, "Activate Quad Damage");
         }
 
         void classAction(Entity @ent) override
@@ -1425,7 +1470,7 @@ class cPowerUpLaunch : cPowerUp {
           }
 
         void select(Entity @ent) override {
-            POWERUPS_setUpClassaction( @ent, "Activate WarShell");
+            POWERUPS_setUpQuickmenu( @ent, "Activate WarShell");
         }
 
         void action(Entity @ent, const String &in args = "" ) override {
@@ -1451,7 +1496,7 @@ class cPowerUpLaunch : cPowerUp {
 
                 "Immortality",
                 S_COLOR_WHITE,
-                "You take no damage for %s seconds, including being hit with an Instagun.",
+                "You take no damage for %s seconds.",
                 "You take no damage for %s seconds",
                 " - %s seconds",
                 POWERUP_HELPMESSAGE_CLASSACTION
@@ -1463,7 +1508,7 @@ class cPowerUpLaunch : cPowerUp {
 
         void select(Entity @ent) override
         {
-            POWERUPS_setUpClassaction(@ent, "Activate Immortality");
+            POWERUPS_setUpQuickmenu(@ent, "Activate Immortality");
         }
 
         void classAction(Entity @ent) override
@@ -1784,8 +1829,8 @@ class cPowerUpLaunch : cPowerUp {
 
                 "Aimbot",
                 S_COLOR_RED,
-                "Target an enemy by damaging them, and hold the special button to aim at a targeted enemy, but only doing 2/3 damage and not being able to use your special key movement.",
-                "Hold the special button to aim at a targeted enemy, at the cost of you doing 2/3 damage",
+                "Target an enemy by damaging them, and hold the crouch button to aim at a targeted enemy, but only doing 2/3 damage.",
+                "Hold the crouch button to aim at a targeted enemy, at the cost of you doing 2/3 damage",
                 "",
                 POWERUP_HELPMESSAGE_AIMBOT
             );
@@ -1796,7 +1841,7 @@ class cPowerUpLaunch : cPowerUp {
         void select(Entity @ent) override
         {
             ent.client.pmoveFeatures &= ~POWERUP_AIMBOT_PMFEATS_NEGATE;
-            ent.client.armor = 75;
+            ent.client.armor = 25;
 
         };
 
@@ -1841,7 +1886,7 @@ class cPowerUpLaunch : cPowerUp {
             if (@powerUp[target.playerNum] != null && powerUp[target.playerNum].powerupID == POWERUPID_INVISIBILITY && powerUp[target.playerNum].ability)
                 return;
 
-            if (POWERUPS_isKeyPressed(ent.client, KEY_SPECIAL) || (ent.client.isBot() && POWERUPS_isKeyPressed(ent.client, KEY_ATTACK))) {
+            if ( POWERUPS_isKeyPressed(ent.client, KEY_CROUCH) ) {
 
                 Vec3 mins, maxs;
                 target.getSize( mins, maxs );
@@ -2003,7 +2048,7 @@ class cPowerUpClone : cPowerUp {
 
     void select(Entity @ent) override
     {
-        POWERUPS_setUpClassaction(@ent, "Spawn clone");
+        POWERUPS_setUpQuickmenu(@ent, "Spawn clone");
     }
 
     void clearPowerup(Entity @ent) override {
@@ -2169,7 +2214,12 @@ class cPowerUpTeleporter : cPowerUp {
 
     void select(Entity @ent) override
     {
-        POWERUPS_setUpClassaction(@ent, "Place teleporter");
+        POWERUPS_setUpQuickmenu(@ent, "Place teleporter");
+
+        if (maxClients < 120) {
+            G_ConfigString(CS_GENERAL + 2 + ent.playerNum, this.statMessage() + " - Not placed");
+        }
+
     }
 
     void clearPowerup(Entity @ent) override {
@@ -2187,9 +2237,7 @@ class cPowerUpTeleporter : cPowerUp {
             }
             ents[i].freeEntity();
         }
-
-
-      }
+    }
 
     void classAction(Entity @ent) override
     {
@@ -2236,7 +2284,10 @@ class cPowerUpTeleporter : cPowerUp {
                 }
             }
 
-            POWERUPS_setUpClassaction(@ent, "Place teleporter");
+            POWERUPS_setUpQuickmenu(@ent, "Place teleporter");
+            if (maxClients < 120) {
+                G_ConfigString(CS_GENERAL + 2 + ent.playerNum, this.statMessage() + " - Not placed");
+            }
 
             if (@teleporterBody != null && @teleporterBody.owner == @teleporter ) {
                 teleporterBody.freeEntity();
@@ -2297,8 +2348,11 @@ class cPowerUpTeleporter : cPowerUp {
         @teleporterBody.die = @POWERUPS_teleporter_die;
 
         teleporter.linkEntity();
-        POWERUPS_setUpClassaction(@ent, "Use teleporter");
+        POWERUPS_setUpQuickmenu(@ent, "Use teleporter");
 
+        if (maxClients < 120) {
+            G_ConfigString(CS_GENERAL + 2 + ent.playerNum, this.statMessage() + " - Placed");
+        }
     }
 
 
@@ -2667,7 +2721,7 @@ class cPowerUpMultiJump : cPowerUp {
 
 }
 
-// This is somewhat buggy with rockets, so I disabled them following
+// This is somewhat buggy with rockets and plasma, so I disabled them following
 class cPowerUpHomingProjectiles : cPowerUp {
     cPowerUpHomingProjectiles()
     {
@@ -2784,6 +2838,10 @@ class cPowerUpHomingProjectiles : cPowerUp {
                     continue;
                 // G_Print(dir.x + " " + dir.y + " " + dir.z + " " + speed + "\n");
 
+                // float moveTime = speed / distance;
+                // enemyOrigin += Vec3(target.velocity.x / moveTime, target.velocity.y / moveTime, target.velocity.z / moveTime);
+
+
                 Vec3 dir = enemyOrigin - start;
                 dir.normalize();
                 vel = Vec3(dir.x * speed, dir.y * speed, dir.z * speed);
@@ -2809,8 +2867,8 @@ class cPowerUpExtraHealth : cPowerUp {
             POWERUPID_EXTRAHP,
             0,
 
-            { 1.0f },
-            { 2.5f },
+            { 1.25f },
+            { 2.25f },
             { POWERUP_NUMBERTYPE_MULTIPLIER },
 
             0.0f, 0.0f,
@@ -2839,11 +2897,11 @@ void POWERUPS_Respawn( Entity @ent )
 
 void POWERUPS_playerConnected( Client @client )
 {
-    G_PrintMsg( client.getEnt(), S_COLOR_YELLOW + "For this gametype, you will need "
-   +S_COLOR_CYAN+ "classaction1" +S_COLOR_YELLOW+ " or "+S_COLOR_CYAN+"+quickmenu" +S_COLOR_YELLOW+ " bound. By default they are on F and LSHIFT respectively.\n"
-        + S_COLOR_YELLOW + "If they are unbound, you can open console with the key left of 1 on your keyboard, and type '"
-        + S_COLOR_CYAN + "bind [key] classaction1" + S_COLOR_YELLOW + "' or '" + S_COLOR_CYAN + "bind [key] +quickmenu" + S_COLOR_YELLOW + "'\n"
-        + S_COLOR_MAGENTA + "Enjoy Powerup Clan Arena!\n" );
+    G_PrintMsg( client.getEnt(), S_COLOR_GREEN+"Welcome to Powerup Clan Arena!\n"
+    +S_COLOR_YELLOW+ "For this gametype, you will need "
+    +S_COLOR_CYAN+"classaction1"+S_COLOR_YELLOW+" or "+S_COLOR_CYAN+"+quickmenu"+S_COLOR_YELLOW+" bound. By default they are on F and LSHIFT respectively.\n"
+    +S_COLOR_YELLOW+"If they are unbound, you can open console with the key left of 1 on your keyboard, and type '"
+    +S_COLOR_CYAN+"bind [key] classaction1"+S_COLOR_YELLOW+"' or '"+S_COLOR_CYAN+"bind [key] +quickmenu"+S_COLOR_YELLOW+"'\n" );
 }
 
 void POWERUPS_fakeChatToTeam( int chatPlayerNum, String message, bool teamChat = true ) {
@@ -2901,7 +2959,7 @@ void POWERUPS_clearPowerupState(Entity @ent)
     cPowerUp @pwr = @powerUp[ent.playerNum];
     pwr.clearPowerup(@ent);
 
-    GENERIC_ClearQuickMenu(@ent.client);
+    POWERUPS_clearQuickmenu(@ent);
 
     // powerup cooldown
     ent.client.setHUDStat(STAT_PROGRESS_SELF, 0);
@@ -2921,9 +2979,14 @@ void POWERUPS_clearPowerupState(Entity @ent)
     ent.maxHealth = 100;
 };
 
-void POWERUPS_setUpClassaction(Entity @ent, String infotext, String command = "classaction1")
+void POWERUPS_clearQuickmenu(Entity @ent)
 {
-    GENERIC_SetQuickMenu(@ent.client, "\"" + infotext + "\" \"" + command + "\"");
+    POWERUPS_setUpQuickmenu(@ent, "", "");
+}
+
+void POWERUPS_setUpQuickmenu(Entity @ent, String infotext, String command = "classaction1")
+{
+    GENERIC_SetQuickMenu(@ent.client, "\"" + infotext + "\" \"" + command + "\"" + "\"Show powerup info\" \"powerups_show\"");
 };
 
 String POWERUPS_getPowerupNameByID( uint id )
@@ -2934,6 +2997,12 @@ String POWERUPS_getPowerupNameByID( uint id )
         return S_COLOR_WHITE + "None";
 
     return pwr.color + pwr.name;
+}
+String POWERUPS_getPowerupDescByID( uint id, bool UseLongDescription = false )
+{
+    cPowerUp @pwr = @POWERUPS_getPowerUpByID( id );
+
+    return ( UseLongDescription ? pwr.longDescription : pwr.description );
 }
 
 String POWERUPS_getRandomPowerupName()
@@ -2959,10 +3028,6 @@ void POWERUPS_applyRandomPowerup(Entity @ent)
 void POWERUPS_applyPowerupByID(Entity @ent, uint id)
 {
     @powerUp[ent.playerNum] = @POWERUPS_getPowerUpByID(id);
-
-    if (@powerUp[ent.playerNum] != null) {
-        powerUp[ent.playerNum].select(ent);
-    }
 };
 
 void POWERUPS_initialise()
@@ -2984,7 +3049,7 @@ void POWERUPS_initialise()
     "Hold " + POWERUPS_helpmsg_bind("{B+moveup}") + " to fly, " + POWERUPS_helpmsg_bind("{B+movedown}") + " to descend and " + POWERUPS_helpmsg_bind("{B+special}") + " to boost."
     );
     G_ConfigString(CS_HELPMESSAGES + POWERUP_HELPMESSAGE_AIMBOT,
-    "Select someone to target by attacking them. Hold " + POWERUPS_helpmsg_bind("{B+special}") + " to look at your target."
+    "Select someone to target by attacking them. Hold " + POWERUPS_helpmsg_bind("{B+movedown}") + " to look at your target."
     );
     G_ConfigString(CS_HELPMESSAGES + POWERUP_HELPMESSAGE_GRAPPLE,
     "Hold " + POWERUPS_helpmsg_bind("{B+special}") + " to grapple."

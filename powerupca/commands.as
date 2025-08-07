@@ -3,6 +3,14 @@ Cvar g_powerups_allow_creator_opCmds( "g_powerups_allow_creator_opCmds", "1", 0 
 
 const String dev_steamID = "76561199756054577";
 
+void POWERUPS_Command_Register() {
+    G_RegisterCommand( "classaction1" );
+    G_RegisterCommand( "op_setPowerup" );
+    G_RegisterCommand( "powerups_credits" );
+    G_RegisterCommand( "powerups_list" );
+    G_RegisterCommand( "powerups_show" );
+}
+
 bool POWERUPS_Command( Client @client, const String &cmdString, const String &argsString, int argc )
 {
 
@@ -18,9 +26,21 @@ bool POWERUPS_Command( Client @client, const String &cmdString, const String &ar
         return true;
     }
 
-    else if ( cmdString == "pca_credits" )
+    else if ( cmdString == "powerups_credits" )
     {
         POWERUPS_Command_credits( @client );
+        return true;
+    }
+
+    else if ( cmdString == "powerups_list" )
+    {
+        POWERUPS_Command_powerupList( @client );
+        return true;
+    }
+
+    else if ( cmdString == "powerups_show" )
+    {
+        POWERUPS_Command_powerupShow( @client );
         return true;
     }
 
@@ -62,7 +82,7 @@ bool POWERUPS_Commands_operatorCheck( Client @client ) {
 
 void POWERUPS_Command_credits( Client @client ) {
     G_PrintMsg(client.getEnt(),
-    S_COLOR_GREEN + "Powerups Clan Arena " + S_COLOR_MAGENTA + "v" + POWERUPS_VERSION + " " + S_COLOR_WHITE + "by" + S_COLOR_CYAN + " algolineu\n"
+    S_COLOR_GREEN + "Powerups Clan Arena " + S_COLOR_WHITE + "v" + POWERUPS_VERSION + " by algolineu\n"
     + S_COLOR_YELLOW + "Jetpack code by MSC from FutsBall\n"
     + S_COLOR_YELLOW + "Grappling hook code by bds1337 on GitHub\n"
     );
@@ -142,10 +162,54 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 
     return;
 }
-void POWERUPS_Command_Register() {
-    G_RegisterCommand( "classaction1" );
-    G_RegisterCommand( "op_setPowerup" );
-    G_RegisterCommand( "pca_credits" );
+
+
+void POWERUPS_Command_powerupList( Client @client ) {
+    Entity @ent = @client.getEnt();
+    String beginMsg = "";
+    String msg = "";
+    int powerupAmount = 0;
+    {
+        for ( uint i = 0; i < maxPowerupID; i++ )
+        {
+            String powerupName = POWERUPS_getPowerupNameByID( i );
+            String powerupDesc = POWERUPS_getPowerupDescByID( i, true );
+            bool isChooseable = POWERUPS_intArrayContains( chooseablePowerupList, i );
+            if (!isChooseable)
+                continue;
+            powerupAmount++;
+            msg += powerupName + S_COLOR_WHITE + " - " + powerupDesc + "\n";
+        }
+    }
+    beginMsg = S_COLOR_GREEN + "There are " + powerupAmount + " powerups available:\n";
+    msg = beginMsg + msg;
+    uint messageSplit = rint(ceil(msg.length() / 1000.0f));
+    for (uint i = 0; i < messageSplit; i++)
+    {
+        uint startCharNum = i * 1000;
+        uint endCharNum = (i + 1) * 1000;
+        if (endCharNum > msg.length())
+            endCharNum = msg.length();
+
+        String splitMessage = msg.subString(startCharNum, endCharNum);
+        G_PrintMsg(ent, splitMessage);
+    }
+}
+
+void POWERUPS_Command_powerupShow( Client @client ) {
+    Entity @ent = @client.getEnt();
+    int playerNum = ent.playerNum;
+    if ( client.chaseActive )
+    {
+        playerNum = client.chaseTarget - 1;
+    }
+    if (@G_GetClient(playerNum) == null)
+        return;
+    cPowerUp @pwr = @powerUp[playerNum];
+    if (pwr.powerupID != POWERUPID_NONE) {
+        G_PrintMsg(ent, pwr.powerupMessage( "", true ) + "\n");
+        G_CenterPrintMsg(ent, pwr.powerupMessage());
+    }
 }
 
 String POWERUPS_allClientsMsg() {
