@@ -1,5 +1,5 @@
 // METADATA
-String POWERUPS_VERSION = "1.3.2";
+String POWERUPS_VERSION = "1.3.2.1";
 // TODO
 // images for powerups
 // balancing (make more powerful, dont want QC situation where theyre all meh)
@@ -3096,6 +3096,12 @@ void POWERUPS_initialise()
                 POWERUPID_TELEPORTER,
                 POWERUPID_GRAPPLE
             };
+
+    for (int i = 0; i < maxClients; i++) {
+        Client @client = @G_GetClient(i);
+        POWERUPS_playerConnected( @client );
+        POWERUPS_applyPowerupByID(@client.getEnt(), 0);
+    }
 }
 
 void POWERUPS_Think()
