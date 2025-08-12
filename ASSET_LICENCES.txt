@@ -1,0 +1,7 @@
+UI is under GPLv2
+
+sounds/powerups/flamethrower.wav modified from "sounds/weapons/rocket_fly_strong" by Michael "Tenshihan" Quinn (Team Forbidden LLC), licensed under CC BY-SA 3.0 US https://creativecommons.org/licenses/by-sa/3.0/us/ https://github.com/TeamForbiddenLLC/warfork-free-soundpacks/tree/master
+
+HUDs (c) Chasseur de Bots licensed under CC BY-SA 4.0. Modified to add support for %MESSAGE_SELF and %MESSAGE_OTHER
+
+scripts/z_algolineu_powerups.shader CC BY-SA 4.0. Modified, (c) Chausseur de Bots

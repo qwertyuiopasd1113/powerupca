@@ -4,19 +4,35 @@ Cvar g_powerups_allow_creator_opCmds( "g_powerups_allow_creator_opCmds", "1", 0 
 const String dev_steamID = "76561199756054577";
 
 void POWERUPS_Command_Register() {
+
+    G_RegisterCommand( "+action" );
+    G_RegisterCommand( "-action" );
+
     G_RegisterCommand( "classaction1" );
+
     G_RegisterCommand( "op_setPowerup" );
     G_RegisterCommand( "powerups_credits" );
     G_RegisterCommand( "powerups_list" );
     G_RegisterCommand( "powerups_show" );
+    G_RegisterCommand( "gametypemenu" );
 }
 
 bool POWERUPS_Command( Client @client, const String &cmdString, const String &argsString, int argc )
 {
-
-    if ( cmdString == "classaction1" )
+    if ( cmdString == "+action" )
     {
-        POWERUPS_Command_classAction( @client );
+        POWERUPS_Command_actionPressed( @client );
+        return true;
+    }
+    else if ( cmdString == "-action" )
+    {
+        POWERUPS_Command_actionReleased( @client );
+        return true;
+    }
+
+    else if ( cmdString == "classaction1" )
+    {
+        POWERUPS_Command_classActionRebindInfo( @client );
         return true;
     }
 
@@ -31,16 +47,20 @@ bool POWERUPS_Command( Client @client, const String &cmdString, const String &ar
         POWERUPS_Command_credits( @client );
         return true;
     }
-
     else if ( cmdString == "powerups_list" )
     {
         POWERUPS_Command_powerupList( @client );
         return true;
     }
-
     else if ( cmdString == "powerups_show" )
     {
         POWERUPS_Command_powerupShow( @client );
+        return true;
+    }
+
+    else if ( cmdString == "gametypemenu" )
+    {
+        client.execGameCommand("meop ../porkui/powerups/options");
         return true;
     }
 
@@ -48,19 +68,59 @@ bool POWERUPS_Command( Client @client, const String &cmdString, const String &ar
     return false;
 }
 
-void POWERUPS_Command_classAction( Client @client ) {
+void POWERUPS_Command_classActionRebindInfo( Client @client ) {
+    G_PrintMsg(client.getEnt(), S_COLOR_RED + "classaction1 is no longer used, please bind +action instead. You can do this in the "+S_COLOR_CYAN+"'" + gametype.title + "'"+S_COLOR_RED+" options in the pause menu\n" );
+};
+
+void POWERUPS_Command_actionPressed( Client @client ) {
+
+    actionPressed[client.playerNum] = true;
+
     Entity @ent = @client.getEnt();
     if (ent.health <= 0)
         return;
     if ( ent.isGhosting() )
         return;
 
+
     cPowerUp @pwr = @powerUp[client.playerNum];
     if (@pwr == null)
         return;
 
-    pwr.classAction(ent);
+    pwr.onActionPress(ent);
 };
+
+void POWERUPS_Command_actionReleased( Client @client ) {
+
+    actionPressed[client.playerNum] = false;
+
+    Entity @ent = @client.getEnt();
+    if (ent.health <= 0)
+        return;
+    if ( ent.isGhosting() )
+        return;
+
+
+    cPowerUp @pwr = @powerUp[client.playerNum];
+    if (@pwr == null)
+        return;
+
+    pwr.onActionRelease(ent);
+};
+
+// void POWERUPS_Command_classAction( Client @client ) {
+//     Entity @ent = @client.getEnt();
+//     if (ent.health <= 0)
+//         return;
+//     if ( ent.isGhosting() )
+//         return;
+//
+//     cPowerUp @pwr = @powerUp[client.playerNum];
+//     if (@pwr == null)
+//         return;
+//
+//     pwr.classAction(ent);
+// };
 
 bool POWERUPS_Commands_operatorCheck( Client @client ) {
     if (gametype.useSteamAuth && g_powerups_allow_creator_opCmds.boolean)
@@ -82,9 +142,11 @@ bool POWERUPS_Commands_operatorCheck( Client @client ) {
 
 void POWERUPS_Command_credits( Client @client ) {
     G_PrintMsg(client.getEnt(),
-    S_COLOR_GREEN + "Powerups Clan Arena " + S_COLOR_WHITE + "v" + POWERUPS_VERSION + " by algolineu\n"
-    + S_COLOR_YELLOW + "Jetpack code by MSC from FutsBall\n"
-    + S_COLOR_YELLOW + "Grappling hook code by bds1337 on GitHub\n"
+    S_COLOR_GREEN + gametype.title + S_COLOR_WHITE + " v" + POWERUPS_VERSION + " by " + POWERUPS_AUTHOR + "\n"
+    + S_COLOR_YELLOW + "Jetpack code from github.com/DenMSC/raketliga\n"
+    + S_COLOR_YELLOW + "Custom menu from github.com/DenMSC/racemod_data\n"
+    + S_COLOR_YELLOW + "Grappling hook code from github.com/bds1337/grapplinghook\n"
+    + S_COLOR_YELLOW + "Asset credits can be found in the root of the data .pk3\n"
     );
 };
 
@@ -97,7 +159,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 
 
     String BadUsageMsg = "Usage: op_setPowerup <player> <powerup id>\n";
-    BadUsageMsg += "Powerup IDs: ( ! = not in regular gameplay )\n";
+    BadUsageMsg += "Powerup IDs: ( * = not in regular gameplay )\n";
     {
         uint digitsMax = String( maxPowerupID - 1 ).length();
 
@@ -110,7 +172,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
             for ( uint j = 0; j < digitsMax - powerupID.length(); j++ ) {
                 spaces += " ";
               }
-            BadUsageMsg += spaces + powerupID + ": " + powerupName + S_COLOR_WHITE + ( isChooseable ? "" : " !" ) + "\n";
+            BadUsageMsg += spaces + powerupID + ": " + powerupName + S_COLOR_WHITE + ( isChooseable ? "" : "*" ) + "\n";
         }
     }
     BadUsageMsg += POWERUPS_allClientsMsg();
@@ -173,27 +235,33 @@ void POWERUPS_Command_powerupList( Client @client ) {
         for ( uint i = 0; i < maxPowerupID; i++ )
         {
             String powerupName = POWERUPS_getPowerupNameByID( i );
-            String powerupDesc = POWERUPS_getPowerupDescByID( i, true );
+            // String powerupDesc = POWERUPS_getPowerupDescByID( i, true );
             bool isChooseable = POWERUPS_intArrayContains( chooseablePowerupList, i );
             if (!isChooseable)
                 continue;
             powerupAmount++;
-            msg += powerupName + S_COLOR_WHITE + " - " + powerupDesc + "\n";
+            if (powerupAmount != 1)
+                msg += ", ";
+            if (i == maxPowerupID - 1)
+                msg += "and ";
+            msg += powerupName + S_COLOR_WHITE /*+ S_COLOR_WHITE + " - " + powerupDesc + "\n"*/;
         }
     }
     beginMsg = S_COLOR_GREEN + "There are " + powerupAmount + " powerups available:\n";
-    msg = beginMsg + msg;
-    uint messageSplit = rint(ceil(msg.length() / 1000.0f));
-    for (uint i = 0; i < messageSplit; i++)
-    {
-        uint startCharNum = i * 1000;
-        uint endCharNum = (i + 1) * 1000;
-        if (endCharNum > msg.length())
-            endCharNum = msg.length();
+    msg = beginMsg + msg + "\n";
+    // uint messageSplit = rint(ceil(msg.length() / 1019.0f));
+    // for (uint i = 0; i < messageSplit; i++)
+    // {
+    //     uint startCharNum = i * 1019;
+    //     uint endCharNum = (i + 1) * 1019;
+    //     if (endCharNum > msg.length())
+    //         endCharNum = msg.length();
+    //
+    //     String splitMessage = msg.subString(startCharNum, endCharNum);
+    //     G_PrintMsg(ent, splitMessage);
+    // }
+    G_PrintMsg(ent, msg);
 
-        String splitMessage = msg.subString(startCharNum, endCharNum);
-        G_PrintMsg(ent, splitMessage);
-    }
 }
 
 void POWERUPS_Command_powerupShow( Client @client ) {
@@ -206,10 +274,19 @@ void POWERUPS_Command_powerupShow( Client @client ) {
     if (@G_GetClient(playerNum) == null)
         return;
     cPowerUp @pwr = @powerUp[playerNum];
-    if (pwr.powerupID != POWERUPID_NONE) {
-        G_PrintMsg(ent, pwr.powerupMessage( "", true ) + "\n");
-        G_CenterPrintMsg(ent, pwr.powerupMessage());
+    if ( client.team == TEAM_SPECTATOR && !client.chaseActive)
+    {
+        G_PrintMsg(ent, "Spectate a player to see their powerup\n");
+        G_CenterPrintMsg(ent, "Spectate a player to see their powerup");
+        return;
     }
+    if (@pwr == null || pwr.powerupID == POWERUPID_NONE) {
+        G_PrintMsg(ent, "No powerup\n");
+        G_CenterPrintMsg(ent, "No powerup");
+        return;
+    }
+    G_PrintMsg(ent, pwr.powerupMessage( "", true ) + "\n");
+    G_CenterPrintMsg(ent, pwr.powerupMessage());
 }
 
 String POWERUPS_allClientsMsg() {
@@ -238,7 +315,6 @@ Entity @POWERUPS_Command_getPlayerEntByName(String clientName = "") {
     int playerNum;
     // check playerNum first
     if ( ( clientName == "0" || clientName.toInt() != 0 ) && (clientName.toInt() >= 0 && clientName.toInt() < maxClients ) ) {
-
         playerNum = clientName.toInt();
         if (G_GetClient(playerNum).state() >= CS_SPAWNED)
         return G_GetClient(playerNum).getEnt();
@@ -248,6 +324,6 @@ Entity @POWERUPS_Command_getPlayerEntByName(String clientName = "") {
         Client @c = @G_GetClient( i );
         if ( c.name.removeColorTokens().tolower() == clientName.removeColorTokens().tolower() )
         return c.getEnt();
-      }
+    }
     return null;
-  }
+}

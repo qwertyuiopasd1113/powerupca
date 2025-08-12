@@ -24,8 +24,6 @@ Cvar g_ca_timelimit1v1( "g_ca_timelimit1v1", "60", 0 );
 Cvar g_noclass_inventory( "g_noclass_inventory", "gb mg rg gl rl pg lg eb cells shells grens rockets plasma lasers bullets", 0 );
 Cvar g_class_strong_ammo( "g_class_strong_ammo", "1 75 20 20 40 125 180 15", 0 ); // GB MG RG GL RL PG LG EB
 
-Cvar g_powerupca_autocomm( "g_powerupca_autocomm", "0", 0 );
-
 const int CA_ROUNDSTATE_NONE = 0;
 const int CA_ROUNDSTATE_PREROUND = 1;
 const int CA_ROUNDSTATE_ROUND = 2;
@@ -37,10 +35,14 @@ const int CA_LAST_MAN_STANDING_BONUS = 0; // 0 points for each frag
 int[] caBonusScores( maxClients );
 int[] caLMSCounts( GS_MAX_TEAMS ); // last man standing bonus for each team
 
-String powerupStringStart = S_COLOR_GREEN + "Your team's powerups:" + S_COLOR_WHITE + "\n";
-String powerupStringStartEnemy = S_COLOR_GREEN + "Enemy team's powerups:" + S_COLOR_WHITE + "\n";
+// POWERUP CA:
+String POWERUPS_VERSION = "1.4";
+String POWERUPS_AUTHOR = "algolineu";
+Cvar g_powerupca_version( "g_powerupca_version", POWERUPS_VERSION, CVAR_READONLY );
+Cvar g_powerupca_autocomm( "g_powerupca_autocomm", "1", 0 );
 
 String[] powerupString( GS_MAX_TEAMS );
+
 class cCARound
 {
     int state;
@@ -261,15 +263,6 @@ class cCARound
             G_CenterPrintMsg( null, 'Fight!');
 
 
-            for ( int i = 0; i < maxClients; i++ ) {
-
-                Entity @ent = @G_GetClient(i).getEnt();
-
-                if ( ent.isGhosting() ) {
-                    POWERUPS_nextRoundID[ent.playerNum] = 0;
-                }
-
-            }
             for ( int i = TEAM_PLAYERS; i < GS_MAX_TEAMS; i++ )
             {
                 Team @team = @G_GetTeam( i );
@@ -292,15 +285,28 @@ class cCARound
                     cPowerUp @pwr = @powerUp[ent.playerNum];
                     powerupString[i] += ( ent.client.name + S_COLOR_WHITE + " : " + pwr.color + pwr.name + S_COLOR_WHITE + " \n");
                 }
+
                 for ( int j = 0; @team.ent( j ) != null; j++ )
                 {
                     Entity @ent = @team.ent( j );
-                    G_PrintMsg(ent, powerupStringStart + powerupString[i]);
+                    G_PrintMsg(ent, S_COLOR_GREEN + "Your team's powerups:" + S_COLOR_WHITE + "\n" + powerupString[i]);
                     if ( @powerUp[ent.playerNum] != null )
                     {
                         powerUp[ent.playerNum].showPowerupInfo( @ent );
                         powerUp[ent.playerNum].select( @ent );
                     }
+                }
+            }
+
+            for ( int i = 0; i < maxClients; i++ ) {
+                Entity @ent = @G_GetClient(i).getEnt();
+                cPowerUp @pwr = @powerUp[ent.playerNum];
+
+                if ( ent.isGhosting() ) {
+                    POWERUPS_nextRoundID[ent.playerNum] = 0;
+                }
+                if ( !ent.isGhosting() && pwr.powerupID == POWERUPID_NONE ) {
+                    G_Print(ent.client.name + S_COLOR_RED + " has no powerup!!\n");
                 }
             }
 
@@ -342,7 +348,7 @@ class cCARound
                     if( @ent.client != null )
                     	ent.client.stats.addRound();
                 }
-                G_PrintMsg(ent, powerupStringStartEnemy + powerupString[TEAM_BETA]);
+                G_PrintMsg(ent, S_COLOR_GREEN + "Enemy team's powerups:" + S_COLOR_WHITE + "\n" + powerupString[TEAM_BETA]);
 
                 count_alpha_total++;
             }
@@ -362,9 +368,17 @@ class cCARound
                     if( @ent.client != null )
                     	ent.client.stats.addRound();
                 }
-                G_PrintMsg(ent, powerupStringStartEnemy + powerupString[TEAM_ALPHA]);
+                G_PrintMsg(ent, S_COLOR_GREEN + "Enemy team's powerups:" + S_COLOR_WHITE + "\n" + powerupString[TEAM_ALPHA]);
 
                 count_beta_total++;
+            }
+
+            @team = @G_GetTeam( TEAM_SPECTATOR );
+            for ( int j = 0; @team.ent( j ) != null; j++ )
+            {
+                @ent = @team.ent( j );
+                G_PrintMsg(ent, S_COLOR_GREEN + "Team " + G_GetTeam(TEAM_ALPHA).name + "'s powerups:" + S_COLOR_WHITE + "\n" + powerupString[TEAM_ALPHA]);
+                G_PrintMsg(ent, S_COLOR_GREEN + "Team " + G_GetTeam(TEAM_BETA).name + "'s powerups:" + S_COLOR_WHITE + "\n" + powerupString[TEAM_BETA]);
             }
 
             int soundIndex;
@@ -865,7 +879,7 @@ bool GT_UpdateBotStatus( Entity @ent )
 
     cPowerUp @pwr = @powerUp[ent.playerNum];
     if (@pwr != null)
-        pwr.classAction(ent);
+        pwr.onActionPress(ent);
 
     float offensiveStatus = GENERIC_OffensiveStatus( ent );
 
@@ -997,11 +1011,11 @@ void GT_ScoreEvent( Client @client, const String &score_event, const String &arg
 {
     if ( score_event == "enterGame" )
     {
-        POWERUPS_playerConnected( @client );
         POWERUPS_applyPowerupByID(client.getEnt(), 0);
     }
     if ( score_event == "disconnect" )
     {
+        actionPressed[client.playerNum] = false;
         POWERUPS_clearPowerupState(client.getEnt());
     }
 
@@ -1127,7 +1141,7 @@ void GT_PlayerRespawn( Entity @ent, int old_team, int new_team )
     // add a teleportation effect
     ent.respawnEffect();
 
-    POWERUPS_Respawn( @ent );
+    POWERUPS_Respawn( @ent, old_team, new_team );
 }
 
 // Thinking function. Called each frame
@@ -1270,8 +1284,8 @@ void GT_InitGametype()
         config = "// '" + gametype.title + "' gametype configuration file\n"
                  + "// This config will be executed each time the gametype is started\n"
                  + "\n\n// map rotation\n"
-                 + "set g_maplist \"return pressure\" // list of maps in automatic rotation\n"
-                 + "set g_maprotation \"0\"   // 0 = same map, 1 = in order, 2 = random\n"
+                 + "set g_maplist \"wfca1 return pressure shredder\" // list of maps in automatic rotation\n"
+                 + "set g_maprotation \"1\"   // 0 = same map, 1 = in order, 2 = random\n"
                  + "\n// game settings\n"
                  + "set g_scorelimit \"11\"\n"
                  + "set g_timelimit \"0\"\n"

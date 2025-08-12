@@ -1,0 +1,115 @@
+<rml>
+<head>
+	<title>home</title>
+	<link type="text/template" href="template_powerups.rml" />
+	<script>
+		Cvar cg_clientHUD( "cg_clientHUD", "default", ::CVAR_ARCHIVE );
+		Cvar cg_specHUD( "cg_specHUD", "default", ::CVAR_ARCHIVE );
+
+		void onPlayerLoad( Element@ body, Event@ evt )
+		{
+			onTemplateLoad( body, evt );
+
+			body.getElementById( 'powerups-menu-header' ).setInnerRML(
+				StringUtils::Format( _T( '%s options' ), game.cs( CS_GAMETYPETITLE ) )
+			);
+		}
+
+		void onPlayerShow( Element@ body, Event@ evt )
+		{
+			onCustomShow( body, evt );
+			loadSettings();
+		}
+
+		void loadSettings() {
+			Element@ body = window.document.body;
+
+			ElementOptionsForm@ f = body.getElementById("options-form");
+			f.storeOptions();
+		}
+
+		void setupCustomMenu( Element @body )
+		{
+			setModalY( 0.5f );
+		}
+
+		void onCloseButton( Element @self, Event @evt)
+		{
+			window.close();
+		}
+		
+		void onCustomShow( Element @body, Event @evt )
+		{
+			setupCustomMenu( body );
+			animationsOnShow();
+		}
+
+		void btn_powerups_show( Element@ self, Event@ evt )
+		{
+			game.execAppend( "powerups_show;\n" );
+			window.close();
+		}
+
+		void btn_powerups_list( Element@ self, Event@ evt )
+		{
+			game.execAppend( "powerups_list;\n" );
+			window.close();
+		}
+
+		void btn_credits( Element@ self, Event@ evt )
+		{
+			game.execAppend( "powerups_credits\n" );
+			window.close();
+		}
+
+		void btn_hudFix( Element@ self, Event@ evt )
+		{
+			if( cg_clientHUD.string == "adem" )
+					cg_clientHUD.set( "adem_powerups" );
+			if( cg_clientHUD.string == "spec" )
+					cg_clientHUD.set( "spec_powerups" );
+
+
+			if( cg_specHUD.string == "adem" )
+					cg_specHUD.set( "adem_powerups" );
+			if( cg_specHUD.string == "spec" )
+					cg_specHUD.set( "spec_powerups" );
+
+			window.close();
+		}
+
+	</script>
+</head>
+<body template="porkui_powerups" onload="$onPlayerLoad" onshow="$onPlayerShow">
+	<div id="menu-ingame">
+		<button id="close-button" onclick="$onCloseButton" />
+
+		<h1 id="powerups-menu-header"></h1>
+		<div id="menu-racemod">
+			<br />
+			<div id="leftcolumn">
+					<optionsform id="options-form">
+							<div class="title">Use powerup</div>
+							<keyselect bind="+action"/>
+							<div class="title">See powerup info</div>
+							<keyselect bind="powerups_show"/>
+
+							<div class="title">Invisible teammates opacity</div>
+							<input cvar="cg_raceGhostsAlpha" class="slider" type="range" min="0" max="1" step="0.05" value="0" realtime="1"/>
+
+							<div class="title">Show help</div>
+							<input cvar="cg_showHelp" type="checkbox" realtime="1"/>
+					</optionsform>
+			</div>
+			<div id="rightcolumn">
+				<div>
+					<button onclick="$btn_hudFix">Click here if you use<br /> adem or spec HUDs</button>
+					<button onclick="$btn_powerups_list">Powerup list</button>
+					<button onclick="$btn_credits">Credits</button>
+					<a class="button" href="https://github.com/qwertyuiopasd1113/powerupca/" target="_browser">GitHub (opens in browser)</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</rml>
