@@ -706,7 +706,7 @@ class cPowerUpExtraDamage : cPowerUp {
             G_ImageIndex("gfx/hud/icons/vsay/boomstick"),
 
             { 0.30f },
-            { 0.60f },
+            { 0.55f },
             { POWERUP_NUMBERTYPE_PERCENT },
 
             0.0f, 0.0f,
@@ -1244,8 +1244,8 @@ class cPowerUpQuad : cPowerUp {
             POWERUPID_QUAD,
             G_ImageIndex("gfx/hud/icons/powerup/quad"),
 
-            { 2.5f, 2.5f },
-            { 4.0f, 4.0f },
+            { 2.5f, 1.75f },
+            { 4.0f, 3.0f },
             { POWERUP_NUMBERTYPE_NUMBER, POWERUP_NUMBERTYPE_NUMBER },
             9.0f, 0.0f,
 
@@ -2601,7 +2601,7 @@ class cPowerUpMultiJump : cPowerUp {
 
     void onActionPress(Entity @ent)
     {
-        if ( !POWERUPS_isOnGround(@ent) && levelTime - airtimeStart > 150 && jumpsDone < maxJumps )
+        if ( !POWERUPS_isOnGround(@ent) && levelTime - airtimeStart > 50 && jumpsDone < maxJumps )
         {
             jumpsDone++;
             // G_Print("Midair jump " + jumpsDone + "\n");
@@ -2792,10 +2792,10 @@ class cPowerUpFear : cPowerUp {
             POWERUPID_FEAR,
             0,
 
-            { 1.25f },
-            { 2.25f },
+            { 0.8f },
+            { 1.3f },
             { POWERUP_NUMBERTYPE_NUMBER },
-            7.0f, 0.0f,
+            10.0f, 0.0f,
             "Fear",
             S_COLOR_GREY,
             "You can stop enemies from attacking for %s seconds within a certain radius.",
@@ -2918,8 +2918,8 @@ class cPowerUpReflection : cPowerUp {
             POWERUPID_REFLECTION,
             0,
 
-            { 0.65f },
-            { 0.85f },
+            { 0.55f },
+            { 0.70f },
             { POWERUP_NUMBERTYPE_PERCENT },
 
             0.0f, 0.0f,
@@ -2934,7 +2934,7 @@ class cPowerUpReflection : cPowerUp {
     }
 
     uint reflection = 0;
-    float staminaMax = 60.0f;
+    float staminaMax = 40.0f;
     float stamina = staminaMax;
     bool outOfStamina = false;
 
@@ -2981,7 +2981,7 @@ class cPowerUpReflection : cPowerUp {
                 stamina = 0.0f;
                 outOfStamina = true;
             }
-            float secondsToRefuel = 5.0f;
+            float secondsToRefuel = 7.0f;
             this.stamina += (staminaMax / secondsToRefuel) * (frameTime * 0.001f);
 
             if (stamina > staminaMax)
@@ -3622,18 +3622,15 @@ void POWERUPS_dealDamageWithArmor(Entity @ent, float damage, Entity @attacker, u
     float armorAbsorb = damage * (2.0f / 3.0f);
     float healthDamage = damage * (1.0f / 3.0f);
 
-    if (ent.client.armor > 0.0f)
+    if (ent.client.armor >= armorAbsorb)
     {
-        if (ent.client.armor >= armorAbsorb)
-        {
-            ent.client.armor -= armorAbsorb;
-        }
-        else
-        {
-            float leftover = armorAbsorb - ent.client.armor;
-            ent.client.armor = 0.0f;
-            healthDamage += leftover;                       // spillover hits health
-        }
+        ent.client.armor -= armorAbsorb;
+    }
+    else
+    {
+        float leftover = armorAbsorb - ent.client.armor;
+        ent.client.armor = 0.0f;
+        healthDamage += leftover;                       // spillover hits health
     }
     ent.health -= healthDamage;
     if (@ent.client != null && @powerUp[ent.playerNum] != null)
@@ -3814,7 +3811,7 @@ void POWERUPS_initialise()
             POWERUPID_SELFKB,
             POWERUPID_GRAPPLE,
             POWERUPID_MULTIJUMP,
-            POWERUPID_HOMINGPROJS,
+            // POWERUPID_HOMINGPROJS,
             POWERUPID_EXTRAHP,
             POWERUPID_FEAR,
             POWERUPID_REFLECTION,
