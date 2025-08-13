@@ -152,7 +152,6 @@ class cPowerUp {
 
     String name;
     String color;
-    String longDescription;
     String description;
     String messageFormat;
 
@@ -160,7 +159,7 @@ class cPowerUp {
 
     int imageIndex;
 
-    cPowerUp(uint id, int imin, array<float> randsMin, array<float> randsMax, array<uint> randNumTypes, float cdown, float abilLen, const String& n, const String& c, const String& ld, const String& d, const String& mf, uint hm = 0)
+    cPowerUp(uint id, int imin, array<float> randsMin, array<float> randsMax, array<uint> randNumTypes, float cdown, float abilLen, const String& n, const String& c, const String& d, const String& mf, uint hm = 0)
     {
         powerupID = id;
         imageIndex = imin;
@@ -181,7 +180,6 @@ class cPowerUp {
 
         name = n;
         color = c;
-        longDescription = ld;
         description = d;
         messageFormat = mf;
         helpMessage = hm;
@@ -202,7 +200,7 @@ class cPowerUp {
         // G_Print(ent.client.name + " " + this.powerupMessage() + "\n");
         // G_CenterPrintMsg(ent, this.color + this.name + " " + this.rand + " " + this.rands[1] );
         if (this.powerupID != POWERUPID_NONE) {
-            G_PrintMsg(ent, this.powerupMessage( "", true ) + "\n");
+            G_PrintMsg(ent, this.powerupMessage() + "\n");
             G_CenterPrintMsg(ent, this.powerupMessage());
         }
         if (maxClients < 120) { // MAX_GENERAL = 128, MAX_CLIENTS = 256
@@ -246,11 +244,11 @@ class cPowerUp {
         return msg;
     };
 
-    String powerupMessage( String statMessageReplacement = "", bool UseLongDescription = false )
+    String powerupMessage( String statMessageReplacement = "" )
     {
         String msg = ( statMessageReplacement.empty() ? statMessage() : statMessageReplacement ) + "\n";
 
-        String formatted = POWERUPS_formatStringWithFloat( ( UseLongDescription ? this.longDescription : this.description ), this.rands, this.randomNumberTypes);
+        String formatted = POWERUPS_formatStringWithFloat( this.description, this.rands, this.randomNumberTypes);
         msg += formatted;
 
         msg += S_COLOR_WHITE;
@@ -342,7 +340,6 @@ class cPowerUpGodMode : cPowerUp {
 
             "Godmode",
             S_COLOR_WHITE,
-            "You are invincible.",
             "You are invincible",
             ""
         );
@@ -368,7 +365,6 @@ class cPowerUpSwap : cPowerUp {
 
             "Position Swap",
             S_COLOR_ORANGE,
-            "Swap positions of yourself and the enemy furthest away from you.",
             "Swap positions of yourself and the enemy furthest away from you",
             "",
             POWERUP_HELPMESSAGE_CLASSACTION
@@ -466,8 +462,7 @@ class cPowerUpInsta : cPowerUp {
             0.0f, 0.0f,
             "Instagib",
             S_COLOR_MAGENTA,
-            "You frag people in one hit, you have no armor, and you gain one more bullet if you frag with the Gunblade.",
-            "You frag people in one hit, but you have no armor and you have a long reload time if you miss.",
+            "You frag people in one hit, but you have no armor and you have a long reload time if you miss",
             ""
         );
     }
@@ -587,8 +582,7 @@ class cPowerUpVampire : cPowerUp {
 
             "Vampire",
             S_COLOR_GREY,
-            "You gain %s of the damage you do, up to a maximum of 500 health.",
-            "You gain %s of the damage you do",
+            "You gain %s of the damage you do, up to a maximum of 500 health",
             " - %s"
         );
     }
@@ -632,8 +626,7 @@ class cPowerUpMaxSpeed : cPowerUp {
 
             "Acceleration",
             S_COLOR_CYAN,
-            "Your max speed is %sx the normal amount, and you gain speed at a much faster rate.",
-            "You accelerate %sx faster",
+            "Your max speed is %sx the normal amount, and you gain speed at a much faster rate",
             " - %sx"
         );
     }
@@ -659,7 +652,6 @@ class cPowerUpDashSpeed : cPowerUp {
 
             "Dash Speed",
             S_COLOR_CYAN,
-            "Your dash brings you up to %sx the speed the regular dash would.",
             "Your dash brings you up to %sx the speed the regular dash would",
             " - %sx"
         );
@@ -686,7 +678,6 @@ class cPowerUpJumpSpeed : cPowerUp {
 
             "Jump Height",
             S_COLOR_CYAN,
-            "You jump %sx higher.",
             "You jump %sx higher",
             " - %sx"
         );
@@ -713,7 +704,6 @@ class cPowerUpExtraDamage : cPowerUp {
 
             "Extra Damage",
             S_COLOR_RED,
-            "You deal %s more damage.",
             "You deal %s more damage",
             " - %s"
         );
@@ -750,8 +740,7 @@ class cPowerUpJetpack : cPowerUp {
 
             "Jetpack",
             S_COLOR_GREEN,
-            "You can fly by holding jump, you can boost by holding special and you can quicky descend by holding crouch. Be wary of your fuel!",
-            "You can fly by holding jump and boost by holding special.",
+            "You can fly by holding jump, boost by holding special and descend by holding crouch",
             " - Power: %s",
             POWERUP_HELPMESSAGE_JETPACK
         );
@@ -959,7 +948,6 @@ class cPowerUpExtraKnockback : cPowerUp {
             0.0f, 0.0f,
             "Extra Knockback",
             S_COLOR_RED,
-            "You deal %sx the knockback to enemies.",
             "You deal %sx the knockback to enemies",
             " - %sx"
         );
@@ -1058,7 +1046,6 @@ class cPowerUpLaunch : cPowerUp {
 
             "Boom!",
             S_COLOR_ORANGE,
-            "You make a powerful explosion with medium range and deal damage to people in close proximity to you.",
             "You make a powerful explosion and deal damage to people in close proximity to you",
             " - Knockback: %sx Damage: %s",
             POWERUP_HELPMESSAGE_CLASSACTION
@@ -1099,8 +1086,7 @@ class cPowerUpInvisibility : cPowerUp {
 
             "Invisibility",
             S_COLOR_WHITE,
-            "You are invisibile while you aren't shooting or in air. You will be visible for %s seconds after you stop shooting or touch the ground, and double that if you are hit.",
-            "You are invisibile while you aren't shooting or in air, or being attacked.",
+            "You are invisible while you aren't shooting or in air. You will be visible for %ss when midair, 1.5x that when shooting, and 2x that when hit",
             " - %s seconds"
         );
     }
@@ -1252,7 +1238,6 @@ class cPowerUpQuad : cPowerUp {
             "Damage Multiplier",
             S_COLOR_ORANGE,
             "Your damage is multiplied by %sx for %s seconds",
-            "Your damage is multiplied by %sx for %s seconds",
             " - %sx for %s seconds",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
@@ -1322,7 +1307,6 @@ class cPowerUpImmortality : cPowerUp {
 
             "Immortality",
             S_COLOR_WHITE,
-            "You take no damage for %s seconds.",
             "You take no damage for %s seconds",
             " - %s seconds",
             POWERUP_HELPMESSAGE_CLASSACTION
@@ -1402,8 +1386,7 @@ class cPowerUpPullTowards : cPowerUp {
 
             "Pull Towards",
             S_COLOR_RED,
-            "Enemies are pulled towards you when attacked.",
-            "Knockback changes to pull enemies towards you when you attack them.",
+            "Knockback changes to pull enemies towards you when you attack them",
             " - %sx"
         );
     }
@@ -1476,7 +1459,6 @@ class cPowerUpInfiniteAmmo : cPowerUp {
             0.0f, 0.0f,
             "Infinite Ammo",
             S_COLOR_MAGENTA,
-            "You have infinite ammo.",
             "You have infinite ammo",
             ""
         );
@@ -1526,8 +1508,7 @@ class cPowerUpProjectileSpeed : cPowerUp {
 
             "Projectile Speed",
             S_COLOR_GREEN,
-            "Your projectiles (rocket, grenade, plasma, gunblade blast) are %sx faster.",
-            "Your projectiles are %sx faster.",
+            "Your projectiles are %sx faster",
             " - %sx"
         );
     }
@@ -1566,8 +1547,7 @@ class cPowerUpFreezeEnemies : cPowerUp {
             0.0f, 0.0f,
             "Freeze Enemies",
             S_COLOR_BLUE,
-            "You have a %s chance to freeze an enemy for an amount of time proportionate to the damage when you attack them.",
-            "You have a %s chance to freeze an enemy when you hit them",
+            "You have a %s chance to freeze an enemy for some time proportionate to the damage you do to them",
             " - %s"
         );
     }
@@ -1687,8 +1667,7 @@ class cPowerUpAimbot : cPowerUp {
 
             "Aimbot",
             S_COLOR_RED,
-            "Target an enemy by damaging them, and hold the crouch button to aim at a targeted enemy, but only doing 2/3 damage.",
-            "Hold the crouch button to aim at a targeted enemy, at the cost of you doing 2/3 damage",
+            "Target an enemy by damaging them, and hold the action button to aim at a targeted enemy, but only doing 2/3 damage",
             "",
             POWERUP_HELPMESSAGE_AIMBOT
         );
@@ -1802,7 +1781,6 @@ class cPowerUpWallhack : cPowerUp {
 
             "Team Wallhack",
             S_COLOR_BLUE,
-            "Your team can see enemies through walls.",
             "Your team can see enemies through walls",
             ""
         );
@@ -1896,7 +1874,6 @@ class cPowerUpClone : cPowerUp {
 
             "Clone",
             S_COLOR_YELLOW,
-            "Place a clone of yourself which deals 50 damage when attacked",
             "Place a clone of yourself which deals 50 damage when attacked",
             "",
             POWERUP_HELPMESSAGE_CLASSACTION
@@ -2066,7 +2043,6 @@ class cPowerUpTeleporter : cPowerUp {
 
             "Teleporter",
             S_COLOR_YELLOW,
-            "Place a one-time use teleporter at which you can teleport to anytime",
             "Place a one-time use teleporter at which you can teleport to anytime",
             "",
             POWERUP_HELPMESSAGE_CLASSACTION
@@ -2260,7 +2236,6 @@ class cPowerUpSelfKnockback : cPowerUp {
             "Self Knockback",
             S_COLOR_GREEN,
             "Shooting pushes you opposite the direction you shot",
-            "Shooting pushes you opposite the direction you shot",
             " - %sx",
             ""
         );
@@ -2323,8 +2298,7 @@ class cPowerUpGrapple : cPowerUp {
 
             "Grappling Hook",
             S_COLOR_YELLOW,
-            "Hold the action button to grapple.",
-            "Hold the action button to grapple.",
+            "Hold the action button to grapple",
             "",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
@@ -2544,10 +2518,9 @@ class cPowerUpMultiJump : cPowerUp {
 
             "Air Jump",
             S_COLOR_BLUE,
-            "You can jump %s times mid-air by pressing jump while in the air",
-            "You can jump %s times mid-air by pressing jump while in the air.",
+            "You can jump %s times mid-air by pressing the action button while in the air",
             " - %s jumps",
-            ""
+            POWERUP_HELPMESSAGE_CLASSACTION
         );
     }
 
@@ -2634,8 +2607,7 @@ class cPowerUpHomingProjectiles : cPowerUp {
 
             "Homing Grenades",
             S_COLOR_BLUE,
-            "Your grenades home in on an enemy.",
-            "Your grenades home in on an enemy.",
+            "Your grenades home in on an enemy",
             ""
           );
     }
@@ -2770,8 +2742,7 @@ class cPowerUpExtraHealth : cPowerUp {
 
             "Extra Health",
             S_COLOR_MAGENTA,
-            "You have %sx more health and armor.",
-            "You have %sx more health and armor.",
+            "You have %sx more health and armor",
             " - %sx"
         );
     }
@@ -2798,8 +2769,7 @@ class cPowerUpFear : cPowerUp {
             10.0f, 0.0f,
             "Fear",
             S_COLOR_GREY,
-            "You can stop enemies from attacking for %s seconds within a certain radius.",
-            "You can stop enemies from attacking for %s seconds within a certain radius.",
+            "You can stop enemies from attacking for %s seconds within a certain radius",
             " - %s seconds",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
@@ -2851,7 +2821,7 @@ class cPowerUpFear : cPowerUp {
             prevWeapon[victim.playerNum] = victim.weapon;
             victim.client.selectWeapon(WEAP_NONE);
         }
-        G_CenterPrintMsg(ent, "You feared " + fearedAmount + " player" + (fearedAmount == 1 ? "" : "s") + "!");
+        G_CenterPrintMsg(ent, "You scared " + fearedAmount + " player" + (fearedAmount == 1 ? "" : "s") + "!");
         this.cooldownTime = levelTime + this.cooldownLength + abilityLength;
     }
 
@@ -2926,8 +2896,7 @@ class cPowerUpReflection : cPowerUp {
 
             "Reflection",
             S_COLOR_WHITE,
-            "You reflect %s damage from incoming attacks when used.",
-            "You reflect %s damage from incoming attacks when used.",
+            "You reflect %s damage from incoming attacks when used",
             " - %s",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
@@ -3065,8 +3034,7 @@ class cPowerUpHitSlowdown : cPowerUp {
 
             "Hit Slowdown",
             S_COLOR_BLUE,
-            "You slow down your enemies proportionate to your damage.",
-            "You slow down your enemies proportionate to your damage.",
+            "You slow down your enemies proportionate to your damage",
             " - %s damage to stop"
         );
     }
@@ -3125,8 +3093,7 @@ class cPowerUpFlameThrower : cPowerUp {
 
             "Flamethrower",
             S_COLOR_ORANGE,
-            "When used, spits out flames in front of you that can burn enemies",
-            "When used, spits out flames in front of you that can burn enemies. Also deals afterburn.",
+            "When used, spits out flames in front of you that can burn enemies. Also deals afterburn",
             "",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
@@ -3166,7 +3133,7 @@ class cPowerUpFlameThrower : cPowerUp {
         particle.particlesSpread = 20;
         particle.particlesSize = 10;
         particle.particlesTime = 1;
-        particle.particlesFrequency = 30;
+        particle.particlesFrequency = 20;
         particle.particlesSpherical = false;
         particle.particlesBounce = false;
         particle.particlesGravity = false;
@@ -3190,7 +3157,7 @@ class cPowerUpFlameThrower : cPowerUp {
     void think(Entity @ent)
     {
         Vec3 particleOrigin = ent.origin;
-        particleOrigin.z += 2 * ent.viewHeight / 3;
+        particleOrigin.z += 25.0f;
 
         Vec3 fwd, right, up;
         ent.angles.angleVectors(fwd, right, up);
@@ -3254,7 +3221,7 @@ class cPowerUpFlameThrower : cPowerUp {
                         lastAfterBurn[enemy.playerNum] = levelTime;
                         afterBurn[enemy.playerNum] = 1;
                     }
-                    enemy.sustainDamage(@ent, @ent, dir, 7, 3, 0, MOD_HIT);
+                    enemy.sustainDamage(@ent, @ent, dir, 6, 3, 0, MOD_HIT);
                 }
             }
         }
@@ -3269,7 +3236,7 @@ class cPowerUpFlameThrower : cPowerUp {
 
                 lastAfterBurn[i] = levelTime;
                 afterBurn[i]++;
-                enemy.sustainDamage(@ent, @ent, Vec3(), 2, 0, 0, MOD_BARREL);
+                enemy.sustainDamage(@ent, @ent, Vec3(), 2, 0, 0, MOD_HIT);
             }
         }
     }
@@ -3323,8 +3290,7 @@ class cPowerUpAntiKB : cPowerUp {
             0.0f, 0.0f,
             "Anti-Knockback",
             S_COLOR_RED,
-            "Enemies deal %sx the knockback to you.",
-            "Enemies deal %sx the knockback to you.",
+            "Enemies deal %sx the knockback to you",
             " - %sx"
         );
     }
@@ -3726,11 +3692,11 @@ String POWERUPS_getPowerupNameByID( uint id )
 
     return pwr.color + pwr.name;
 }
-String POWERUPS_getPowerupDescByID( uint id, bool UseLongDescription = false )
+String POWERUPS_getPowerupDescByID( uint id )
 {
     cPowerUp @pwr = @POWERUPS_getPowerUpByID( id );
 
-    return ( UseLongDescription ? pwr.longDescription : pwr.description );
+    return pwr.description;
 }
 
 String POWERUPS_getRandomPowerupName()

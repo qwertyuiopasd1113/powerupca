@@ -285,7 +285,7 @@ void POWERUPS_Command_powerupShow( Client @client ) {
         G_CenterPrintMsg(ent, "No powerup");
         return;
     }
-    G_PrintMsg(ent, pwr.powerupMessage( "", true ) + "\n");
+    G_PrintMsg(ent, pwr.powerupMessage() + "\n");
     G_CenterPrintMsg(ent, pwr.powerupMessage());
 }
 

@@ -36,7 +36,7 @@ int[] caBonusScores( maxClients );
 int[] caLMSCounts( GS_MAX_TEAMS ); // last man standing bonus for each team
 
 // POWERUP CA:
-String POWERUPS_VERSION = "1.4.0.1";
+String POWERUPS_VERSION = "1.4.0.2";
 String POWERUPS_AUTHOR = "algolineu";
 Cvar g_powerupca_version( "g_powerupca_version", POWERUPS_VERSION, CVAR_READONLY );
 Cvar g_powerupca_autocomm( "g_powerupca_autocomm", "1", 0 );
