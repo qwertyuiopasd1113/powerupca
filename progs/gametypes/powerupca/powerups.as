@@ -77,6 +77,8 @@ enum PowerUpID {
     POWERUPID_HITSLOWDOWN,
     POWERUPID_FLAMETHROWER,
     POWERUPID_ANTIKB,
+    POWERUPID_FLASHBANG,
+    POWERUPID_AIRDASH,
 
     maxPowerupID
 }
@@ -114,8 +116,10 @@ cPowerUp POWERUPS_getPowerUpByID(uint id)
         case POWERUPID_FEAR:             return cPowerUpFear();
         case POWERUPID_REFLECTION:       return cPowerUpReflection();
         case POWERUPID_HITSLOWDOWN:      return cPowerUpHitSlowdown();
-        case POWERUPID_FLAMETHROWER:     return cPowerUpFlameThrower();
+        case POWERUPID_FLAMETHROWER:     return cPowerUpFlamethrower();
         case POWERUPID_ANTIKB:           return cPowerUpAntiKB();
+        case POWERUPID_FLASHBANG:        return cPowerUpFlashbang();
+        case POWERUPID_AIRDASH:          return cPowerUpAirDash();
 
         default:                         return cPowerUpNone();
     }
@@ -462,72 +466,25 @@ class cPowerUpInsta : cPowerUp {
             0.0f, 0.0f,
             "Instagib",
             S_COLOR_MAGENTA,
-            "You frag people in one hit, but you have no armor and you have a long reload time if you miss",
+            "You frag people in one hit, but you have no armor and only 5 bullets",
             ""
         );
     }
 
-
-    int instaAmmo = 0;
-    uint timeShot = 0;
-    bool hit = false;
-
-    void think(Entity @ent)
-    {
-        //if it has went down by 1
-        if ( instaAmmo - 1 == ent.client.inventoryCount( AMMO_INSTAS ) && timeShot == 0 )
-        {
-            // G_Print("weapon " + i + " shot\n");
-            instaAmmo = ent.client.inventoryCount( AMMO_INSTAS );
-            timeShot = levelTime;
-            ent.client.inventorySetCount(AMMO_INSTAS, 0);
-        }
-        if ( (levelTime - timeShot >= 2000 && timeShot != 0) || hit )
-        {
-            timeShot = 0;
-            ent.client.inventorySetCount(AMMO_INSTAS, instaAmmo);
-            hit = false;
-        }
-        if ( instaAmmo == 0 )
-        {
-            ent.client.selectWeapon(WEAP_GUNBLADE);
-        }
-    }
-
-    float getStatFloat()
-    {
-        return timeShot == 0 ? timeShot : ( float(levelTime - timeShot) / 2000 );
-    };
-
     void select(Entity @ent)
     {
-        Team @team = @G_GetTeam(ent.team == TEAM_ALPHA ? TEAM_BETA : TEAM_ALPHA);
-        int enemiesAlive = 0;
-        for (int i = 0; @team.ent(i) != null; i++) {
-            if (!team.ent(i).isGhosting())
-                enemiesAlive++;
-        }
-
         ent.client.inventoryClear();
         ent.client.inventorySetCount(WEAP_GUNBLADE, 1);
         ent.client.inventorySetCount(WEAP_INSTAGUN, 1);
 
-        if (enemiesAlive + 1 > 5)
-            ent.client.inventorySetCount(AMMO_INSTAS, 5 );
-        else
-            ent.client.inventorySetCount(AMMO_INSTAS, enemiesAlive + 1 );
+        ent.client.inventorySetCount(AMMO_INSTAS, 5 );
 
         ent.client.armor = 0;
         ent.client.selectWeapon(-1);
-
-
-        instaAmmo = ent.client.inventoryCount( AMMO_INSTAS );
     }
 
     void dmg(Entity @ent, const String& in args = "")
     {
-        hit = true;
-
         Entity @victim = @G_GetEntity(args.getToken(0).toInt());
         // float damage = args.getToken( 1 ).toFloat();
         if (@victim.client == null)
@@ -542,9 +499,7 @@ class cPowerUpInsta : cPowerUp {
             victim.health -= 9999;
             if (ent.client.weapon == WEAP_GUNBLADE)
             {
-                instaAmmo++;
-                ent.client.inventorySetCount(AMMO_INSTAS, instaAmmo);
-                timeShot = levelTime - 2000;
+                ent.client.inventoryGiveItem(AMMO_INSTAS, 1 );
                 // the one we just gave
                 if ( ent.client.inventoryCount(AMMO_INSTAS) == 1 )
                 {
@@ -591,9 +546,9 @@ class cPowerUpVampire : cPowerUp {
 
     void select(Entity @ent)
     {
-        ent.health = 250;
-        ent.maxHealth = 250;
-        ent.client.armor = 0;
+        ent.health = ent.health + ent.client.armor;
+        ent.maxHealth = 250.0f;
+        ent.client.armor = 0.0f;
     };
 
 
@@ -753,6 +708,7 @@ class cPowerUpJetpack : cPowerUp {
     bool outOfFuel = false;
     bool lowOnFuel = false;
     bool jetpackActive = false;
+    uint jetpackLastUse = levelTime;
 
     uint regular_pmfeats;
 
@@ -852,27 +808,30 @@ class cPowerUpJetpack : cPowerUp {
                 fwd.z = 0;
                 fwd.normalize();
 
-                Vec3 horizontalSpeed = newVelocity;
-                horizontalSpeed.z = 0;
+                Vec3 horizontalVel = newVelocity;
+                horizontalVel.z = 0;
 
-                float speed = horizontalSpeed.length();
-                float minspeed = 225 + 450 * (this.rands[0] / this.randsMax[0]);
-                float maxspeed = 450 + (1.5 * 450 * this.rands[0]);
+                float currentHorizontalSpeed = horizontalVel.length();
+                float minspeed = 450 * (this.rands[0] / this.randsMax[0]);
+                float maxspeed = (1.5 * 450 * this.rands[0]);
 
-                float fuelLoss = 10.0f;
+                float fuelLoss = 15.0f;
+                float speed = 0.0f;
 
-                if (speed < minspeed)
+                if (currentHorizontalSpeed < minspeed)
                     speed = minspeed;
-                else if (speed > maxspeed) {
+                else if (currentHorizontalSpeed > maxspeed) {
                     speed = maxspeed;
-                    fuelLoss = 5.0f;
                 }
                 else
-                    speed += 5 * minspeed / 450;
+                    speed = currentHorizontalSpeed + 5 * minspeed / 450;
 
-                newVelocity.x = fwd.x * speed;
-                newVelocity.y = fwd.y * speed;
-                newVelocity.z += (this.rands[0] + 10.0f);
+                Vec3 boostVelocityAdd = 0.0f;
+
+                boostVelocityAdd.x = fwd.x * speed * (frameTime * 0.001f);
+                boostVelocityAdd.y = fwd.y * speed * (frameTime * 0.001f);
+                boostVelocityAdd.z = (this.rands[0] + 10.0f);
+                newVelocity += boostVelocityAdd;
                 this.fuel -= fuelLoss * (frameTime * 0.001f);
             }
         }
@@ -882,21 +841,22 @@ class cPowerUpJetpack : cPowerUp {
             ent.client.pmoveMaxSpeed = 240;
         }
 
-        if (this.fuel < fuelMax && POWERUPS_isOnGround( @ent ) ) {
+        if (this.fuel < fuelMax && ( POWERUPS_isOnGround( @ent ) || levelTime - jetpackLastUse > 500 ) && !jetpackActive ) {
             float secondsToRefuel;
             if (!outOfFuel)
-                secondsToRefuel = 4.0f;
+                secondsToRefuel = 3.0f;
             else
-                secondsToRefuel = 5.0f;
+                secondsToRefuel = 4.0f;
 
             this.fuel += (fuelMax / secondsToRefuel) * (frameTime * 0.001f);
         }
 
         if (this.fuel >= fuelMax) {
             this.fuel = fuelMax;
-            if (this.outOfFuel)
-                this.outOfFuel = false;
         }
+
+        if (this.fuel >= fuelMax / 2.0f && this.outOfFuel)
+            this.outOfFuel = false;
 
         if (this.fuel < this.fuelMax / 10 && !lowOnFuel) {
             this.lowOnFuel = true;
@@ -920,9 +880,14 @@ class cPowerUpJetpack : cPowerUp {
         this.jetpack.velocity = ent.velocity;
 
         if ( this.jetpackActive )
+        {
+            jetpackLastUse = levelTime;
             this.jetpack.svflags &= ~SVF_NOCLIENT;
+        }
         else
+        {
             this.jetpack.svflags |= SVF_NOCLIENT;
+        }
     }
     void clearPowerup(Entity @ent)
     {
@@ -1056,7 +1021,7 @@ class cPowerUpLaunch : cPowerUp {
     {
             if (!checkCooldown(@ent))
                 return;
-            ent.splashDamage(@ent, 400, this.rands[1], (this.rands[0] * 450), 0, MOD_HIT);
+            ent.splashDamage(@ent, 400, this.rands[1], (this.rands[0] * 550), 0, MOD_HIT);
             ent.explosionEffect(200);
     }
 
@@ -1086,7 +1051,7 @@ class cPowerUpInvisibility : cPowerUp {
 
             "Invisibility",
             S_COLOR_WHITE,
-            "You are invisible while you aren't shooting or in air. You will be visible for %ss when midair, 1.5x that when shooting, and 2x that when hit",
+            "You are invisible while you aren't shooting or in air. You will be visible for %ss when midair, 1.25x that when shooting, and 1.75x that when hit",
             " - %s seconds"
         );
     }
@@ -1198,7 +1163,7 @@ class cPowerUpInvisibility : cPowerUp {
     void tookdmg(Entity @ent, const String& in args = "")
     {
         this.ability = false;
-        this.abilityTimeEnd = levelTime + (this.abilityLength) * 2;
+        this.abilityTimeEnd = levelTime + rint((this.abilityLength) * 1.75f);
     };
 
     void dmg(Entity @ent, const String& in args = "")
@@ -1230,8 +1195,8 @@ class cPowerUpQuad : cPowerUp {
             POWERUPID_QUAD,
             G_ImageIndex("gfx/hud/icons/powerup/quad"),
 
-            { 2.5f, 1.75f },
-            { 4.0f, 3.0f },
+            { 1.75f, 1.5f },
+            { 2.25f, 2.5f },
             { POWERUP_NUMBERTYPE_NUMBER, POWERUP_NUMBERTYPE_NUMBER },
             9.0f, 0.0f,
 
@@ -1300,7 +1265,7 @@ class cPowerUpImmortality : cPowerUp {
             G_ImageIndex("gfx/hud/icons/powerup/warshell"),
 
             { 2.0f },
-            { 4.0f },
+            { 3.25f },
             { POWERUP_NUMBERTYPE_NUMBER },
 
             7.5f, 0.0f,
@@ -1429,6 +1394,7 @@ class cPowerUpPullTowards : cPowerUp {
         Vec3 vel = victimVelocity[victim.playerNum];
 
         vel += dir * pullAmount;
+        vel.z *= 1.5f;
         victim.velocity = vel;
 
         victimVelocity[victim.playerNum] = victim.velocity;
@@ -2140,8 +2106,8 @@ class cPowerUpTeleporter : cPowerUp {
             return;
         }
 
-        // on ground or jumping
-        if (!POWERUPS_isOnGround(@ent) || POWERUPS_isKeyPressed(@ent.client, KEY_JUMP) ) {
+        // in midair
+        if (!POWERUPS_isOnGround(@ent) ) {
             this.cooldownTime = 0;
             G_PrintMsg(ent, this.color + this.name + S_COLOR_WHITE + " can only be placed when on the ground.\n");
             return;
@@ -2290,16 +2256,16 @@ class cPowerUpGrapple : cPowerUp {
             POWERUPID_GRAPPLE,
             0,
 
-            { 0.0f },
-            { 0.0f },
-            { POWERUP_NUMBERTYPE_NONE },
+            { 1.0f },
+            { 2.0f },
+            { POWERUP_NUMBERTYPE_NUMBER },
 
             0.0f, 0.0f,
 
             "Grappling Hook",
             S_COLOR_YELLOW,
             "Hold the action button to grapple",
-            "",
+            " - %sx",
             POWERUP_HELPMESSAGE_CLASSACTION
         );
     }
@@ -2395,7 +2361,7 @@ class cPowerUpGrapple : cPowerUp {
                 // Disable crounching
                 client.pmoveFeatures = client.pmoveFeatures & ~( PMFEAT_CROUCH );
 
-                this.hookOrigin = client.getEnt().origin + ent.viewHeight;
+                this.hookOrigin = client.getEnt().origin + Vec3( 0, 0, 30 );
 
                 Vec3 player_look;
                 player_look = this.hookOrigin + this.fwdTarget * 10000; // hook lenght limit
@@ -2420,7 +2386,7 @@ class cPowerUpGrapple : cPowerUp {
 
             Vec3 dir, v0, dv, v;
             // Define hook speed scale
-            const float hookScale = 30;
+            const float hookScale = 15 * this.rands[0];
 
             dir = this.hookEndPos - client.getEnt().origin;
             float dist = dir.length();
@@ -2751,7 +2717,7 @@ class cPowerUpExtraHealth : cPowerUp {
     {
         ent.client.armor *= this.rands[0];
         ent.health *= this.rands[0];
-        ent.maxHealth = rint(ent.health);
+        ent.maxHealth = rint(100.0f * this.rands[0]);
     }
 }
 
@@ -2821,7 +2787,7 @@ class cPowerUpFear : cPowerUp {
             prevWeapon[victim.playerNum] = victim.weapon;
             victim.client.selectWeapon(WEAP_NONE);
         }
-        G_CenterPrintMsg(ent, "You scared " + fearedAmount + " player" + (fearedAmount == 1 ? "" : "s") + "!");
+        G_CenterPrintMsg(ent, "You feared " + fearedAmount + " player" + (fearedAmount == 1 ? "" : "s") + "!");
         this.cooldownTime = levelTime + this.cooldownLength + abilityLength;
     }
 
@@ -2888,8 +2854,8 @@ class cPowerUpReflection : cPowerUp {
             POWERUPID_REFLECTION,
             0,
 
+            { 0.35f },
             { 0.55f },
-            { 0.70f },
             { POWERUP_NUMBERTYPE_PERCENT },
 
             0.0f, 0.0f,
@@ -2916,7 +2882,7 @@ class cPowerUpReflection : cPowerUp {
         // regular_pmfeats = ent.client.pmoveFeatures;
         // ent.client.pmoveFeatures &= ~POWERUP_REFLECTION_PMFEATS_NEGATE;
         this.stamina = this.staminaMax;
-        ent.health = 250.0f;
+        ent.health = ent.health + ent.client.armor;
         ent.maxHealth = 250.0f;
         ent.client.armor = 0.0f;
     };
@@ -2974,14 +2940,14 @@ class cPowerUpReflection : cPowerUp {
     void tookdmg(Entity @ent, const String& in args = "")
     {
         Entity @attacker = @G_GetEntity(args.getToken(2).toInt());
+        if (@attacker == null || @attacker.client == null)
+            return;
         Entity @victim = @ent;
         float damage = args.getToken(1).toFloat();
         float reflectionDamage = damage * this.rands[0];
         cPowerUp @pwr = @powerUp[attacker.playerNum];
         if ( pwr.powerupID == POWERUPID_REFLECTION && pwr.ability )
-        {
             return;
-        }
 
         int attackerPing = 0;
         if (@attacker != null)
@@ -3078,8 +3044,8 @@ class cPowerUpHitSlowdown : cPowerUp {
     }
 };
 
-class cPowerUpFlameThrower : cPowerUp {
-    cPowerUpFlameThrower()
+class cPowerUpFlamethrower : cPowerUp {
+    cPowerUpFlamethrower()
     {
         super(
             POWERUPID_FLAMETHROWER,
@@ -3130,7 +3096,7 @@ class cPowerUpFlameThrower : cPowerUp {
 
         particle.particlesSpeed = 150;
         particle.particlesShaderIndex = G_ImageIndex("flamethrower_particle");
-        particle.particlesSpread = 20;
+        particle.particlesSpread = 10;
         particle.particlesSize = 10;
         particle.particlesTime = 1;
         particle.particlesFrequency = 20;
@@ -3187,8 +3153,8 @@ class cPowerUpFlameThrower : cPowerUp {
 
             particle.svflags &= ~SVF_NOCLIENT;
 
-            float minDot = 0.8f;
-            float maxDist = 300.0f;
+            float minDot = 0.9f;
+            float maxDist = 350.0f;
 
             int enemyTeam = ent.team == TEAM_ALPHA ? TEAM_BETA : TEAM_ALPHA;
             array<Entity @> allEnemies = G_FindByClassname("clone");
@@ -3221,7 +3187,7 @@ class cPowerUpFlameThrower : cPowerUp {
                         lastAfterBurn[enemy.playerNum] = levelTime;
                         afterBurn[enemy.playerNum] = 1;
                     }
-                    enemy.sustainDamage(@ent, @ent, dir, 6, 3, 0, MOD_HIT);
+                    enemy.sustainDamage(@ent, @ent, dir, 5, 3, 0, MOD_HIT);
                 }
             }
         }
@@ -3236,7 +3202,7 @@ class cPowerUpFlameThrower : cPowerUp {
 
                 lastAfterBurn[i] = levelTime;
                 afterBurn[i]++;
-                enemy.sustainDamage(@ent, @ent, Vec3(), 2, 0, 0, MOD_HIT);
+                enemy.sustainDamage(@ent, @ent, Vec3(), 1, 0, 0, MOD_HIT);
             }
         }
     }
@@ -3328,6 +3294,195 @@ class cPowerUpAntiKB : cPowerUp {
         selfVelocity = ent.velocity;
     }
 };
+
+// TODO Create 3d model to blind? SVF_OWNERANDCHASERS? UI to change r_brightness (probably no)
+class cPowerUpFlashbang : cPowerUp {
+    cPowerUpFlashbang()
+    {
+        super(
+            POWERUPID_FLASHBANG,
+            0,
+
+            { 0.8f },
+            { 1.3f },
+            { POWERUP_NUMBERTYPE_NUMBER },
+            4.0f, 0.0f,
+            "Flashbang",
+            S_COLOR_WHITE,
+            "Enemies that are looking at you will be blind for %s seconds",
+            " - %s seconds",
+            POWERUP_HELPMESSAGE_CLASSACTION
+        );
+    }
+    bool[] blind(maxClients);
+    uint[] blindUntil(maxClients);
+
+    void select(Entity @ent)
+    {
+        for (int i = 0; i < maxClients; i++) {
+            blind[i] = false;
+            blindUntil[i] = 0;
+        }
+    };
+
+    void onActionPress(Entity @ent)
+    {
+        if (!checkCooldown(@ent))
+            return;
+        int enemyTeam = ent.team == TEAM_ALPHA ? TEAM_BETA : TEAM_ALPHA;
+        array<int> allEnemies = POWERUPS_teamAlivePlayerList(enemyTeam);
+        int blindedAmount = 0;
+
+        for (uint i = 0; i < allEnemies.length(); i++)
+        {
+            Entity @victim = G_GetClient(allEnemies[i]).getEnt();
+            if (@victim == null || victim.isGhosting())
+                continue;
+
+
+            Vec3 fwd, right, up;
+            victim.angles.angleVectors(fwd, right, up);
+
+            Vec3 dir = ent.origin - victim.origin;
+            dir.normalize();
+
+            float dot = fwd.x * dir.x + fwd.y * dir.y + fwd.z * dir.z;
+
+            Trace trace;
+            Vec3 start = victim.origin;
+            start.z += victim.viewHeight;
+            trace.doTrace(start, Vec3(0, 0, 0), Vec3(0, 0, 0), ent.origin, ent.entNum, MASK_SHOT);
+
+            if (trace.fraction < 1.0f)
+                continue;
+
+            if (dot < 0.5f)
+                continue;
+
+
+            blindedAmount++;
+
+            blind[victim.playerNum] = true;
+            blindUntil[victim.playerNum] = levelTime + rint(ceil(1000 * this.rands[0]));
+        }
+        G_CenterPrintMsg(ent, "You blinded " + blindedAmount + " player" + (blindedAmount == 1 ? "" : "s") + "!");
+        this.cooldownTime = levelTime + this.cooldownLength + abilityLength;
+    }
+
+    void clearPowerup(Entity @ent)
+    {
+        for (int i = 0; i < maxClients; i++) {
+            Entity @victim = @G_GetClient(i).getEnt();
+            if (blind[victim.playerNum]) {
+
+                // unfear(@victim);
+            };
+        };
+    };
+
+    void think(Entity @ent)
+    {
+
+        for (int i = 0; i < maxClients; i++) {
+            Entity @victim = @G_GetClient(i).getEnt();
+            if (blind[victim.playerNum]) {
+                // victim.client.pmoveFeatures &= ~POWERUP_FEARED_PMFEATS_NEGATE;
+
+                // float fearedTime = float(fearedUntil[victim.playerNum] - float(levelTime)) / 1000.0f;
+                // G_CenterPrintMsg(victim, "You are too afraid to attack for " + POWERUPS_formatFloat(POWERUP_NUMBERTYPE_NUMBER, fearedTime) + " seconds!");
+                // victim.client.selectWeapon(WEAP_NONE);
+
+                if (blindUntil[victim.playerNum] < levelTime || victim.isGhosting() ) {
+                    // unfear(@victim);
+                }
+            };
+        };
+    };
+}
+
+
+
+class cPowerUpAirDash : cPowerUp {
+    cPowerUpAirDash()
+    {
+        super(
+            POWERUPID_AIRDASH,
+            0,
+
+            { 0.0f },
+            { 0.0f },
+            { POWERUP_NUMBERTYPE_NONE },
+
+            0.0f, 0.0f,
+
+            "Airdash",
+            S_COLOR_BLUE,
+            "You can dash mid-air by pressing the action button while in the air",
+            "",
+            POWERUP_HELPMESSAGE_CLASSACTION
+        );
+    }
+
+    int jumpsDone = 0;
+    int maxJumps = 1;
+
+    int soundIndex = G_SoundIndex("sounds/world/launchpad");
+
+    void think(Entity @ent)
+    {
+        if ( POWERUPS_isOnGround(@ent) && jumpsDone != 0 )
+            jumpsDone--;
+    }
+
+    void onActionPress(Entity @ent)
+    {
+        if ( !POWERUPS_isOnGround(@ent) && jumpsDone < maxJumps )
+        {
+            jumpsDone++;
+
+            Vec3 vel = ent.velocity;
+            Vec3 horizontalVel = vel;
+            horizontalVel.z = 0;
+
+            Vec3 fwd, right, up;
+            ent.angles.angleVectors(fwd, right, up);
+
+            fwd.normalize();
+            right.normalize();
+
+            Vec3 dir = Vec3(0, 0, 0);
+
+            if ( POWERUPS_isKeyPressed(ent.client, KEY_FORWARD) )
+                dir += fwd;
+            if ( POWERUPS_isKeyPressed(ent.client, KEY_BACK) )
+                dir -= fwd;
+            if ( POWERUPS_isKeyPressed(ent.client, KEY_RIGHT) )
+                dir += right;
+            if ( POWERUPS_isKeyPressed(ent.client, KEY_LEFT) )
+                dir -= right;
+
+            if ( dir == Vec3(0, 0, 0) )
+                dir = fwd;
+
+            dir.normalize();
+
+            float dashSpeed = ( horizontalVel.length() < ent.client.pmoveDashSpeed ) ? ent.client.pmoveDashSpeed : horizontalVel.length();
+
+            dir *= dashSpeed;
+
+            vel.x = dir.x;
+            vel.y = dir.y;
+            if (vel.z < 0.0f)
+                vel.z = 0.0f;
+            vel.z += 175.0f;
+
+            ent.velocity = vel;
+
+            G_Sound( ent, CHAN_AUTO, soundIndex, 0.25f );
+        }
+    }
+
+}
 
 // utils
 
@@ -3783,7 +3938,8 @@ void POWERUPS_initialise()
             POWERUPID_REFLECTION,
             POWERUPID_HITSLOWDOWN,
             POWERUPID_FLAMETHROWER,
-            POWERUPID_ANTIKB
+            // POWERUPID_ANTIKB
+            POWERUPID_AIRDASH
         };
 
         if ( gametype.isInstagib )
@@ -3800,7 +3956,8 @@ void POWERUPS_initialise()
                 POWERUPID_TELEPORTER,
                 POWERUPID_GRAPPLE,
                 POWERUPID_MULTIJUMP,
-                POWERUPID_FEAR
+                POWERUPID_FEAR,
+                POWERUPID_AIRDASH
         };
 
     for (int i = 0; i < maxClients; i++) {

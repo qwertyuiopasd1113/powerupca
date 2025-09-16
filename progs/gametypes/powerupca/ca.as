@@ -36,10 +36,12 @@ int[] caBonusScores( maxClients );
 int[] caLMSCounts( GS_MAX_TEAMS ); // last man standing bonus for each team
 
 // POWERUP CA:
-String POWERUPS_VERSION = "1.4.0.2";
+String POWERUPS_VERSION = "1.4.1.0";
 String POWERUPS_AUTHOR = "algolineu";
 Cvar g_powerupca_version( "g_powerupca_version", POWERUPS_VERSION, CVAR_READONLY );
 Cvar g_powerupca_autocomm( "g_powerupca_autocomm", "1", 0 );
+Cvar g_powerupca_availablepowerups( "g_powerupca_availablepowerups", "", 0 );
+
 
 String[] powerupString( GS_MAX_TEAMS );
 
@@ -1369,6 +1371,26 @@ void GT_InitGametype()
     G_RegisterCommand( "gametype" );
 
     G_RegisterCallvote( "autocomm", "<1 or 0>", "bool", "Teammates automatically communicate info when killed" );
+
+    if (!g_powerupca_availablepowerups.string.empty())
+    {
+        G_Print(S_COLOR_GREEN + "Using g_powerupca_availablepowerups for chooseablePowerupList\n");
+        String powerupIDsToEnable = g_powerupca_availablepowerups.string;
+
+        for ( int i = 0; ;i++ )
+        {
+            String token = powerupIDsToEnable.getToken( i );
+            if ( token.len() == 0 )
+                break; // done
+
+            cPowerUp @pwr = @POWERUPS_getPowerUpByID( token.toInt() );
+            if ( @pwr == null )
+                continue;
+
+            chooseablePowerupList.insertLast(token.toInt());
+        }
+    }
+
 
     POWERUPS_initialise();
 
