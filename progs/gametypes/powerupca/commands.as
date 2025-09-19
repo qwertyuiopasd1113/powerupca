@@ -157,8 +157,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 
     Entity @ent = @client.getEnt();
 
-
-    String BadUsageMsg = "Usage: op_setPowerup <player> <powerup id>\n";
+    String BadUsageMsg = "Usage: op_setPowerup <player> <powerup id> [-s]\n";
     BadUsageMsg += "Powerup IDs: ( * = not in regular gameplay )\n";
     {
         uint digitsMax = String( maxPowerupID - 1 ).length();
@@ -184,6 +183,7 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 
     String player = argsString.getToken( 0 );
     String powerupID = argsString.getToken( 1 );
+    bool silent = argsString.getToken( 2 ) == "-s";
 
     if (player == "-1" )
     {
@@ -218,9 +218,9 @@ void POWERUPS_Command_setPowerup( Client @client, const String &argsString, int 
 
     POWERUPS_nextRoundID[victim.playerNum] = powerupID.toInt();
     String powerupName = POWERUPS_getPowerupNameByID(POWERUPS_nextRoundID[victim.playerNum]) + S_COLOR_WHITE;
-    G_PrintMsg( ent, victim.client.name + S_COLOR_WHITE + " will have the " + powerupName + " powerup next round.\n" );
-    if ( @ent != @victim )
+    if ( @ent != @victim && !silent )
         G_PrintMsg( victim, ent.client.name + S_COLOR_WHITE + " set your powerup to " + powerupName + " next round.\n" );
+    G_PrintMsg( ent, (silent ? "Silent: " : "") + victim.client.name + S_COLOR_WHITE + " will have the " + powerupName + " powerup next round.\n" );
 
     return;
 }

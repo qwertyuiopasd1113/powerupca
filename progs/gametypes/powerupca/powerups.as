@@ -751,15 +751,16 @@ class cPowerUpJetpack : cPowerUp {
 
         Vec3 mins, maxs;
         ent.getSize( mins, maxs );
-
+        // breaks teleports& also crouch to unstuck i guess?
+        /*
         Trace trace;
-        bool inWall = trace.doTrace(ent.origin, mins, maxs, ent.origin, ent.entNum, MASK_SOLID);
+        bool inWall = trace.doTrace(ent.origin, mins, maxs, ent.origin, ent.entNum, MASK_SHOT);
 
         if (inWall && ent.moveType != MOVETYPE_NOCLIP) {
             Vec3 newOrigin = ent.origin;
             uint i = 0;
 
-            while (trace.doTrace(newOrigin, mins, maxs, newOrigin, ent.entNum, MASK_SOLID)) {
+            while (trace.doTrace(newOrigin, mins, maxs, newOrigin, ent.entNum, MASK_SHOT)) {
                 newOrigin.z -= 0.5f;
                 i++;
                 if (i > 100) {
@@ -772,6 +773,7 @@ class cPowerUpJetpack : cPowerUp {
 
             ent.origin = newOrigin;
         }
+        */
         if (fuel > 0.0f && !outOfFuel) {
             if (POWERUPS_isKeyPressed(ent.client, KEY_JUMP)) {
 
@@ -906,7 +908,7 @@ class cPowerUpExtraKnockback : cPowerUp {
             POWERUPID_EXTRAKB,
             G_ImageIndex("gfx/hud/icons/vsay/attack"),
 
-            { 1.25f },
+            { 1.5f },
             { 2.5f },
             { POWERUP_NUMBERTYPE_NUMBER },
 
@@ -1007,7 +1009,7 @@ class cPowerUpLaunch : cPowerUp {
             { 2.0f, 150.0f },
             { POWERUP_NUMBERTYPE_NUMBER, POWERUP_NUMBERTYPE_INTEGER },
 
-            5.0f, 0.0f,
+            7.5f, 0.0f,
 
             "Boom!",
             S_COLOR_ORANGE,
@@ -2729,10 +2731,10 @@ class cPowerUpFear : cPowerUp {
             POWERUPID_FEAR,
             0,
 
-            { 0.8f },
+            { 0.9f },
             { 1.3f },
             { POWERUP_NUMBERTYPE_NUMBER },
-            10.0f, 0.0f,
+            8.0f, 0.0f,
             "Fear",
             S_COLOR_GREY,
             "You can stop enemies from attacking for %s seconds within a certain radius",
@@ -2769,7 +2771,7 @@ class cPowerUpFear : cPowerUp {
                 continue;
 
             float dist = ent.origin.distance(victim.origin);
-            if (dist > 300.0f)
+            if (dist > 400.0f)
                 continue;
 
             fearedAmount++;
